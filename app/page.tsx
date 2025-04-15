@@ -1,7 +1,7 @@
 import BgGradient from "@/components/common/bg-gradient";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Brain, HandHelping, Rocket, ShieldPlus, WandSparkles } from "lucide-react";
+import { ArrowRight, Brain, HandHelping, Rocket, ShieldPlus, Sparkles, WandSparkles } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -122,31 +122,52 @@ export default function Home() {
             )}
         </div>
       </section>
-      <div className=" mt-10 text-black max-w-screen">
-        <div>
-          <div className="pt-10 mx-10 text-sm font-semibold  text-center">
-            are you ready?!
+      
+      <BgGradient className=" inset-0 opacity-80 blur-xl z-0"/>
+      <section className="py-16 text-gray-800 flex flex-col justify-center ">
+
+        <div className=" relative z-10 text-black ">
+
+          <div className="pl-20 mb-4 flex flex-col items-center">
+            <div className=" rounded-full p-2 border border-gray-200 hover:bg-gray-200/50 mb-8">
+              <Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" />
+            </div>
+            <div className=" mb-2 font-bold text-indigo-700 text-3xl font-bold  text-center">
+              Are you ready?
+            </div>
+
+            <div className="font-bold mx-auto text-5xl text-center">Let&apos;s get Started!</div>
           </div>
-          <div className="text-3xl font-bold  text-center">Let&apos;s get Started!</div>
-        </div>
-        <div className="flex flex-row items-center gap-3 pb-10 py-10">
-            <div className="text-2xl font-bold flex flex-col items-center w-1/3">
-              Team RisingDevelopers
+
+          <div className="flex justify-evenly items-center pb-10 py-10">
+            <div className="text-2xl font-bold ">
+              RisingDevelopers
             </div>
-            <div className="flex flex-col items-center w-1/3">
-              <Link href="/dashboard">
-                <button className="border-2 font-bold border-black rounded-4xl p-4 hover:cursor-pointer hover:text-gray-500  hover:border-gray-500">
-                  Our agents
-                </button>
-              </Link>
+            
+            <div className="flex justify-center">
+              <Button variant={'link'} className="text-white text-base sm:text-lg lg:text-xl rounded-full px-8 sm:px-10 lg:px-12 py-6 sm:py-7 lg:py-8  bg-linear-to-r from-slate-800 to-indigo-600 hover:from-indigo-600 hover:to-slate-800 transition-all duration-200 hover:no-underline shadow-lg">
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <span>
+                      Try Our Agents
+                  </span>
+                  <ArrowRight/>
+                </Link>
+              </Button>
+
             </div>
-            <div className="flex flex-col items-center w-1/3">
-              <Link href="/contact" className=" text-2xl font-bold ml-4">
+            
+            <div className="">
+              <div className=" text-2xl font-bold">
                 Contact us
-              </Link>
+              </div>
             </div>
+          </div>
+
         </div>
-      </div>
+
+      
+      </section>
+      
     </div>
   );
 }
