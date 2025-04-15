@@ -38,7 +38,7 @@ export default function DashboardSelect({data}:DashboardData) {
                 {data.map( (items,index) =>
                     <div key={index} className="bg-white h-[450px] text-black rounded-xl">
                         <div className="h-56 rounded-t-xl bg-indigo-500 flex justify-center items-center">
-                        <Image src={items.image} alt={items.name} className="w-44 h-44 rounded-full" width={300} height={300} />
+                        <Image src={items.image} alt={items.name} className="w-44 h-44 rounded-full" width={350} height={350} />
                         </div>
 
                         <div className="flex flex-col justify-center items-center gap-4 p-4 mt-1">

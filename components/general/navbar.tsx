@@ -1,13 +1,14 @@
+'use client'
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { LoginLink,LogoutLink,RegisterLink } from "@kinde-oss/kinde-auth-nextjs/server";
+import { LoginLink, LogoutLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Avatar, AvatarFallback, AvatarImage, } from "@/components/ui/avatar"
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
-export default async function Navbar() {
+export default  function Navbar() {
 
-    const {getUser} = getKindeServerSession();
-    const user = await getUser();
+    const {getUser} = useKindeBrowserClient();
+    const user = getUser();
 
 
     return (

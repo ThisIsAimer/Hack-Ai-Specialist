@@ -24,19 +24,19 @@ const data = [{
         id: "DoctorAI",
         name: "Doctor AI",
         description: "An AI modal that has specifically been trained with medical data. It can be  provide images of  medical reports and give useful information and diagnosis. one should take to a real doctor for further diagnosis.",
-        image: "/images/doctor.jpg",
+        image: "/images/doctor.JPG",
     },
     {
         id: "LawyerAI",
         name: "Lawyer AI",
         description: "An AI modal that has specifically been trained with Indian law data. It has been specially trained with the data of all IPC sections and constitutional laws. It can be used to make legal reports and letters and give better information about law and regulations  as per needed.",
-        image: "/images/lawyer.jpg",
+        image: "/images/lawyer.JPG",
     },
     {
         id: "AccountantAI",
         name: "Accountant AI",
         description: "An AI modal that has specifically been trained with accounting data. It can be used to figure out payable income tax, help in managing accounts, find accounting errors, and give suggestions on how to reduce the payable income tax.",
-        image: "/images/accountent.jpg",
+        image: "/images/accountent.JPG",
     },
     {
         id: "webdev",
