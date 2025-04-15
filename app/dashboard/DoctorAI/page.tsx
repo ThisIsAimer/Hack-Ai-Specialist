@@ -83,18 +83,18 @@
  
                  <BgGradient className=" inset-0 opacity-60 blur-2xl z-0" />
  
-                 <header className="relative z-10 pt-40">
-                     <h1 className=" text-center font-semibold md:text-5xl sm:text-4xl text-3xl my-10">Chat with DoctorAI</h1>
+                 <header className="relative z-10 ">
+                     <h1 className=" text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with DoctorAI</h1>
                  </header>
  
                  {/* chat box */}
-                 <div className="overflow-y-auto z-10">
+                 <div className="overflow-y-auto h-[500px] custom-scrollbar z-10">
                      {messages.map((msg) => (
                          <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} px-4 py-2`}>
                              <div  className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl shadow-sm text-sm whitespace-pre-wrap transition-all duration-300 ease-in-out 
                              ${msg.sender === "user"
-                                 ? "bg-indigo-500 text-white rounded-br-none"
-                                 : "bg-gray-200 text-gray-800 rounded-bl-none"}
+                                 ? "bg-indigo-500 text-white rounded-md"
+                                 : "bg-gray-100/40 rounded-md text-gray-800"}
                              `}>
                                  {msg.text}
                              </div>
