@@ -5,44 +5,46 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const SYSTEM_PROMPT = {
     role: 'system',
-    content: process.env.SYSTEM_PROMPT_CONTENT
+    content: process.env.SYSTEM_PROMPT_CONTENT || "You are a helpful assistant that can analyze images and answer questions about them."
 }
 
-export async function POST(request: Request) {// when user sends mesg to chat this func gets called!
+export async function POST(request: Request) {
     try {
         const { message, conversation = [] } = await request.json(); 
-        if (!message) {
+        if (!message || !message.content) {
             return NextResponse.json(
-            { error: "Message content is required!" },
+                { error: "Message content is required!" },
                 { status: 400 }
             );
         }
-         // Construct msgs array with system prompt and convo history
-         const messages = [
+        // Ensure user content is always an array for multimodal support
+        const userContent = Array.isArray(message.content) ? message.content : [{ type: "text", text: message.content }];
+        // Construct messages array with system prompt and conversation history
+        const messages = [
             SYSTEM_PROMPT,
-            ...conversation, // include prov messages if provided
+            ...conversation,
             {
                 role: 'user',
-                content: message,
+                content: userContent,
             }
         ];
 
         const chatCompletion = await groq.chat.completions.create({
             messages: messages,
-            model: "llama3-8b-8192"
+            model: "meta-llama/llama-4-scout-17b-16e-instruct" // Updated to supported multimodal model
         });
-        // using groq obj to send msg to llama model!
 
-        const responseMessage = chatCompletion.choices[0]?.message?.content || "No response from llama.";
+        const responseMessage = chatCompletion.choices[0]?.message?.content || "No response from the model.";
         return NextResponse.json({
             response: responseMessage
         });
-    } catch (err) {
-        console.error("Error in chat Api: ", err);
+    } catch (err: unknown) {
+        // Handle the error as an Error type or fallback to a generic message
+        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+        console.error("Error in chat API:", errorMessage, err instanceof Error ? err.stack : err);
         return NextResponse.json(
-            { error: "An error occurred while processing your request." },
-            {status:500} //server error=500
-        )
+            { error: `An error occurred: ${errorMessage}` },
+            { status: 500 }
+        );
     }
-
 }
