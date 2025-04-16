@@ -3,23 +3,32 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+const SYSTEM_PROMPT = {
+    role: 'system',
+    content: process.env.SYSTEM_PROMPT_CONTENT
+}
+
 export async function POST(request: Request) {// when user sends mesg to chat this func gets called!
     try {
-        const { message } = await request.json(); 
-
+        const { message, conversation = [] } = await request.json(); 
         if (!message) {
             return NextResponse.json(
             { error: "Message content is required!" },
                 { status: 400 }
             );
         }
+         // Construct msgs array with system prompt and convo history
+         const messages = [
+            SYSTEM_PROMPT,
+            ...conversation, // include prov messages if provided
+            {
+                role: 'user',
+                content: message,
+            }
+        ];
+
         const chatCompletion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: 'user',
-                    content: message,
-                },
-            ],
+            messages: messages,
             model: "llama3-8b-8192"
         });
         // using groq obj to send msg to llama model!

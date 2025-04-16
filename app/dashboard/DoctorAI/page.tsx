@@ -84,7 +84,7 @@
                  <BgGradient className=" inset-0 opacity-60 blur-2xl z-0" />
  
                  <header className="relative z-10 ">
-                     <h1 className=" text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with DoctorAI</h1>
+                     <h1 className=" text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with Doctor AI</h1>
                  </header>
  
                  {/* chat box */}
