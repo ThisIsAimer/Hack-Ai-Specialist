@@ -10,7 +10,23 @@ interface CloudinaryUploadResult {
   event: string;
   info: {
     secure_url?: string;
-    [key: string]: any;
+    [key: string]: unknown;
+  };
+}
+
+// Define Cloudinary interface for window
+interface CloudinaryWindow extends Window {
+  cloudinary?: {
+    createUploadWidget: (
+      config: {
+        cloudName: string;
+        uploadPreset: string;
+        sources: string[];
+        multiple: boolean;
+        maxFileSize: number;
+      },
+      callback: (error: Error | null, result?: CloudinaryUploadResult) => void
+    ) => { open: () => void };
   };
 }
 
@@ -43,7 +59,7 @@ const DoctorAi = () => {
 
   useEffect(() => {
     const initializeWidget = () => {
-      const cloudinary = (window as any).cloudinary;
+      const cloudinary = (window as CloudinaryWindow).cloudinary;
       if (cloudinary) {
         console.log("Cloudinary script loaded successfully");
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -72,13 +88,12 @@ const DoctorAi = () => {
             multiple: false,
             maxFileSize: 5000000, // 5MB limit
           },
-          (error: any, result?: CloudinaryUploadResult) => {
+          (error: Error | null, result?: CloudinaryUploadResult) => {
             console.log("Cloudinary callback:", { error, result });
             if (error) {
               console.error("Cloudinary upload error details:", error);
               const errorMessage =
                 error?.message ||
-                error?.statusText ||
                 "Upload failed. Please verify your Cloudinary account settings and try again.";
               setMessages((prev) => [
                 ...prev,
@@ -136,7 +151,7 @@ const DoctorAi = () => {
     const maxRetries = 5;
     let retries = 0;
     const retryInterval = setInterval(() => {
-      if ((window as any).cloudinary || retries >= maxRetries) {
+      if ((window as CloudinaryWindow).cloudinary || retries >= maxRetries) {
         clearInterval(retryInterval);
         initializeWidget();
       } else {
