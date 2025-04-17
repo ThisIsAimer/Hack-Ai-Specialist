@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@kinde-oss/kinde-auth-nextjs": "^2.6.1",
+    "@prisma/client": "^6.6.0",
     "@radix-ui/react-avatar": "^1.1.4",
     "@radix-ui/react-slot": "^1.2.0",
     "axios": "^1.8.4",
@@ -21,6 +22,7 @@
     "next": "15.3.0",
     "next-themes": "^0.4.6",
     "pdf-parse": "^1.1.1",
+    "prisma": "^6.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-slick": "^0.30.3",
@@ -32,13 +34,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.17.30",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   }
 }
