@@ -4,6 +4,7 @@ import BgGradient from "@/components/common/bg-gradient";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Script from 'next/script';
 import Image from 'next/image';
+import { toast } from "sonner";
 
 // Define Cloudinary types
 interface CloudinaryUploadResult {
@@ -107,6 +108,16 @@ const DoctorAi = () => {
             }
             if (result && result.event === "success" && result.info.secure_url) {
               console.log("Image uploaded:", result.info.secure_url);
+             
+              toast("Added 1 attachment", {
+                description: "Now Type Your Message and press Enter!",
+                action: {
+                  label: "Close",
+                  onClick: () => console.log("Undo"),
+                },
+              })
+
+
               setAttachedImageUrl(result.info.secure_url);
             }
           }
@@ -241,7 +252,6 @@ const DoctorAi = () => {
         src="https://upload-widget.cloudinary.com/global/all.js"
         strategy="lazyOnload"
         onLoad={() => {
-          console.log("Cloudinary script loaded via Script component");
           setCloudinaryLoaded(true);
         }}
         onError={(e) => {
