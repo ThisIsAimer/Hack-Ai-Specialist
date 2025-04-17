@@ -11,6 +11,7 @@ interface CloudinaryUploadResult {
   event: string;
   info: {
     secure_url?: string;
+    format?: string;
     [key: string]: unknown;
   };
 }
@@ -25,6 +26,7 @@ interface CloudinaryWindow extends Window {
         sources: string[];
         multiple: boolean;
         maxFileSize: number;
+        allowedFormats: string[];
       },
       callback: (error: Error | null, result?: CloudinaryUploadResult) => void
     ) => { open: () => void };
@@ -45,7 +47,7 @@ type Message = {
 const DoctorAi = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [attachedImageUrl, setAttachedImageUrl] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ url: string; type: 'image' | 'pdf' } | null>(null);
   const [loading, setLoading] = useState(false);
   const [cloudinaryLoaded, setCloudinaryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ const DoctorAi = () => {
             {
               id: Date.now(),
               sender: "bot",
-              content: "Image upload is disabled due to invalid configuration. Please contact support.",
+              content: "File upload is disabled due to invalid configuration. Please contact support.",
             },
           ]);
           return;
@@ -88,6 +90,7 @@ const DoctorAi = () => {
             sources: ['local', 'url', 'camera'],
             multiple: false,
             maxFileSize: 5000000, // 5MB limit
+            allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'pdf'],
           },
           (error: Error | null, result?: CloudinaryUploadResult) => {
             console.log("Cloudinary callback:", { error, result });
@@ -101,24 +104,36 @@ const DoctorAi = () => {
                 {
                   id: Date.now(),
                   sender: "bot",
-                  content: `Failed to upload image: ${errorMessage}`,
+                  content: `Failed to upload file: ${errorMessage}`,
                 },
               ]);
               return;
             }
             if (result && result.event === "success" && result.info.secure_url) {
-              console.log("Image uploaded:", result.info.secure_url);
-             
-              toast("Added 1 attachment", {
-                description: "Now Type Your Message and press Enter!",
-                action: {
-                  label: "Close",
-                  onClick: () => console.log("Undo"),
-                },
-              })
-
-
-              setAttachedImageUrl(result.info.secure_url);
+              const fileType = result.info.format?.toLowerCase();
+              if (['jpg', 'jpeg', 'png', 'gif'].includes(fileType || '')) {
+                setAttachedFile({ url: result.info.secure_url, type: 'image' });
+                toast("Added 1 image attachment", {
+                  description: "Now type your message and press Enter!",
+                  action: { label: "Close", onClick: () => console.log("Close") },
+                });
+              } else if (fileType === 'pdf') {
+                setAttachedFile({ url: result.info.secure_url, type: 'pdf' });
+                toast("Added 1 PDF attachment", {
+                  description: "Now type your message and press Enter!",
+                  action: { label: "Close", onClick: () => console.log("Close") },
+                });
+              } else {
+                console.error("Unsupported file type:", fileType);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: Date.now(),
+                    sender: "bot",
+                    content: "Unsupported file type uploaded. Please upload images (JPG, PNG, GIF) or PDFs.",
+                  },
+                ]);
+              }
             }
           }
         );
@@ -152,13 +167,12 @@ const DoctorAi = () => {
           {
             id: Date.now(),
             sender: "bot",
-            content: "Failed to load image upload service. Please check your network or try again later.",
+            content: "Failed to load file upload service. Please check your network or try again later.",
           },
         ]);
       }
     };
 
-    // Retry loading Cloudinary
     const maxRetries = 5;
     let retries = 0;
     const retryInterval = setInterval(() => {
@@ -176,14 +190,18 @@ const DoctorAi = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() && !attachedImageUrl) return;
+    if (!input.trim() && !attachedFile) return;
 
     const content: ContentItem[] = [];
     if (input.trim()) {
       content.push({ type: "text", text: input.trim() });
     }
-    if (attachedImageUrl) {
-      content.push({ type: "image_url", image_url: { url: attachedImageUrl } });
+    if (attachedFile) {
+      if (attachedFile.type === 'image') {
+        content.push({ type: "image_url", image_url: { url: attachedFile.url } });
+      } else if (attachedFile.type === 'pdf') {
+        content.push({ type: "text", text: `Attached PDF: ${attachedFile.url}` });
+      }
     }
 
     const userMessage: Message = {
@@ -194,7 +212,7 @@ const DoctorAi = () => {
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setAttachedImageUrl(null);
+    setAttachedFile(null);
     setLoading(true);
 
     try {
@@ -261,7 +279,7 @@ const DoctorAi = () => {
             {
               id: Date.now(),
               sender: "bot",
-              content: "Failed to load image upload service. Please check your network or try again later.",
+              content: "Failed to load file upload service. Please check your network or try again later.",
             },
           ]);
         }}
@@ -280,7 +298,24 @@ const DoctorAi = () => {
                 {Array.isArray(msg.content) ? (
                   msg.content.map((item, index) => {
                     if (item.type === "text") {
-                      return <p key={index}>{item.text}</p>;
+                      if (item.text.startsWith("Attached PDF:")) {
+                        const pdfUrl = item.text.split(": ")[1];
+                        return (
+                          <div key={index}>
+                            <p>Attached PDF:</p>
+                            <a
+                              href={pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 underline"
+                            >
+                              View PDF
+                            </a>
+                          </div>
+                        );
+                      } else {
+                        return <p key={index}>{item.text}</p>;
+                      }
                     } else if (item.type === "image_url") {
                       return <Image key={index} src={item.image_url.url} alt="Attached image" width={200} height={200} />;
                     }
