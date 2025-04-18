@@ -7,6 +7,7 @@ import 'slick-carousel/slick/slick-theme.css';
 
 import Slider from 'react-slick';
 import Image from 'next/image';
+import { Button } from '../ui/button';
 
 interface DashboardItem {
     id: string;
@@ -29,28 +30,40 @@ export default function DashboardSelect({data}:DashboardData) {
         speed: 500,
         slidesToShow: 3,
         slidesToScroll: 1,
-      };
+    };
 
     return (
         <>    
-        <div className=" w-8/10 m-auto rounded-2xl shadow-lg">
+        <div className="p-8 m-auto rounded-2xl shadow-md bg-gray-200/60 ">
             <Slider {...settings} >
                 {data.map( (items,index) =>
-                    <div key={index} className="bg-white h-[450px] text-black rounded-xl">
-                        <div className="h-56 rounded-t-xl bg-indigo-500 flex justify-center items-center">
+                    <div key={index} className="text-black rounded-xl pb-6 pt-4">
+                        <div className=" rounded-t-xl flex justify-center items-center">
                         <Image src={items.image} alt={items.name} className="w-44 h-44 rounded-full" width={350} height={350} />
                         </div>
 
-                        <div className="flex flex-col justify-center items-center gap-4 p-4 mt-1">
-                            <Link href={"/dashboard/"+items.id} >
-                                <div className="text-white">
-                                    <button className="text-3xl font-bold bg-indigo-600 px-5 pb-1 hover:cursor-pointer hover:bg-indigo-700 rounded-xl">{items.name}</button>
-                                </div>
-                            </Link>
-                            <div>
-                                <p className='text-xs font-bold overflow-hidden line-clamp-8'>{items.description}</p>
+                        <div className="flex flex-col justify-center items-center gap-4 py-2 px-6 ">
+                            
+                            <div className="">
+                                <button className="text-3xl font-bold ">{items.name}</button>
+                            </div>
+                            
+                            <div >
+                                <p className='text-md text-center w-44 text-gray-600'>{items.description}</p>
                             </div>
                         </div>
+                        <Link href={"/dashboard/"+items.id}  >
+                            <div className="flex justify-center">
+                                <Button variant={'link'} className="text-white mt-4 text-base sm:text-lg lg:text-xl rounded-md px-8 sm:px-10 lg:px-8 py-6 sm:py-7 lg:py-6 bg-indigo-600 hover:from-indigo-600 hover:to-slate-800 transition-all duration-200 hover:no-underline shadow-lg cursor-pointer">
+                                    
+                                    <span>
+                                        Talk Now
+                                    </span>
+                                  
+                                </Button>
+
+                            </div>
+                        </Link>
                     </div>
                 )}
             </Slider>

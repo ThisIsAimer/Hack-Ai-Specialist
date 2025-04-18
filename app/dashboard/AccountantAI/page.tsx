@@ -50,6 +50,7 @@ const DoctorAi = () => {
   const [cloudinaryLoaded, setCloudinaryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+
   const scrollToBottom = () => {
     messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -197,6 +198,23 @@ const DoctorAi = () => {
     setAttachedImageUrl(null);
     setLoading(true);
 
+
+    const previousConversation: Message[] = []; // or some relevant initial value
+    const response = await fetch("/api/accountant-chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: { content },
+        conversation: previousConversation,
+        selectedBotId: "AccountantAI", // 👈 tell backend this is DoctorAI
+      }),
+    });
+
+    const data = await response.json();
+    console.log(data);
+    
     try {
       const previousConversation = messages.map(msg => ({
         role: msg.sender === "user" ? "user" : "assistant",
@@ -205,7 +223,7 @@ const DoctorAi = () => {
 
       console.log("Sending to API:", { message: { content }, conversation: previousConversation });
 
-      const response = await fetch("/api/doctor-chat", {
+      const response = await fetch("/api/accountant-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -269,7 +287,7 @@ const DoctorAi = () => {
       <div className="flex flex-col relative">
         <BgGradient className="inset-0 opacity-60 blur-2xl z-0" />
         <header className="relative z-10">
-          <h1 className="text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with Doctor AI</h1>
+          <h1 className="text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with Accountant AI</h1>
         </header>
         {/* chat box */}
         <div className="overflow-y-auto h-[500px] custom-scrollbar z-10">

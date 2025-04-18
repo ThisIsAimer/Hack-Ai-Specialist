@@ -5,7 +5,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const SYSTEM_PROMPT = {
     role: 'system',
-    content: process.env.SYSTEM_PROMPT_CONTENT || "You are a helpful assistant that can analyze images and answer questions about them."
+    content: process.env.DOCTOR_PROMPT || "You are a helpful assistant that can analyze images and answer questions about them."
 }
 
 export async function POST(request: Request) {
