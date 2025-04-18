@@ -140,4 +140,4 @@ For questions or feedback, reach out to the project maintainers:
 
 ---
 
-Built with ❤️ by the Team RisingDevelopers
+Built with ❤️ by Team RisingDevelopers
