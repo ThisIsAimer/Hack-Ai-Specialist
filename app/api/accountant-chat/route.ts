@@ -14,7 +14,7 @@ interface MessageContent {
 
 const SYSTEM_PROMPT = {
   role: 'system' as const,
-  content: process.env.SYSTEM_PROMPT_CONTENT || "You are a helpful assistant that can analyze images and answer questions about them."
+  content: process.env.ACCOUNTANT_PROMPT || "You are a helpful assistant that can analyze images and answer questions about them."
 };
 
 export async function POST(request: Request) {

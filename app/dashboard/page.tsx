@@ -27,6 +27,12 @@ const data = [{
         image: "/images/doctor.JPG",
     },
     {
+        id: "TeacherAI",
+        name: "Teacher AI",
+        description: "An AI model specifically trained on educational data is ready to assist with teaching and learning. This agent can help explain complex topics, generate practice questions, offer different perspectives on subjects, and provide personalized feedback.",
+        image: "/images/teacher.JPG",
+    },
+    {
         id: "LawyerAI",
         name: "Lawyer AI",
         description: "An AI modal that has specifically been trained with Indian law data. It has been specially trained with the data of all IPC sections and constitutional laws. It can be used to make legal reports and letters and give better information about law and regulations  as per needed.",
@@ -39,9 +45,9 @@ const data = [{
         image: "/images/accountent.JPG",
     },
     {
-        id: "webdev",
-        name: "web dev",
-        description: "Web development is the process of creating websites and web applications that run on the internet. It involves both front-end development, which focuses on the design and user experience using technologies like HTML, CSS, and JavaScript, and back-end development, which handles the server-side logic and databases using languages such as Python, PHP, Ruby, or Node.js. Web developers work to ensure websites are functional, responsive, and user-friendly across different devices and browsers. With the growing demand for online services, web development has become a crucial skill in the tech industry, combining creativity and technical expertise to build everything from simple landing pages to complex web-based platforms",
-        image: "/images/image.png",
+        id: "ProgrammerAI",
+        name: "Programmer AI",
+        description: "An AI model that has specifically been trained with programming data is ready to support your coding endeavors. This agent can help with a variety of coding tasks, from troubleshooting errors to offering alternative solutions and explaining complex concepts.",
+        image: "/images/programmer.JPG",
     }
 ]

@@ -108,7 +108,7 @@ ai-specialist/
 1. **Sign Up / Log In**:
    - Use the Kinde authentication flow to create an account or log in.
 2. **Interact with AI Agents**:
-   - Select an AI agent (Doctor, Teacher, Lawyer, or Accountant) from the dashboard (more on the way).
+   - Select an AI agent (Doctor, Teacher, Lawyer, Accountant or programmer) from the dashboard (more on the way).
    - Input queries via text, upload images, or files for processing.
 3. **RAG-Powered Responses**:
    - The app retrieves relevant documents from Neon DB to augment AI responses, ensuring context-aware answers.
