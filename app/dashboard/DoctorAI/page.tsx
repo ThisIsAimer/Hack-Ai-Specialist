@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Script from 'next/script';
 import Image from 'next/image';
 import { toast } from "sonner";
+import Link from 'next/link';
 
 // Define Cloudinary types
 interface CloudinaryUploadResult {
@@ -16,7 +17,6 @@ interface CloudinaryUploadResult {
   };
 }
 
-// Define Cloudinary interface for window
 interface CloudinaryWindow extends Window {
   cloudinary?: {
     createUploadWidget: (
@@ -33,7 +33,6 @@ interface CloudinaryWindow extends Window {
   };
 }
 
-// Define content type for messages
 type ContentItem =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
@@ -289,6 +288,14 @@ const DoctorAi = () => {
         <header className="relative z-10">
           <h1 className="text-center font-semibold md:text-5xl sm:text-4xl text-3xl mb-2">Chat with Doctor AI</h1>
         </header>
+        {/* Avatar Mode Button */}
+        <div className="absolute top-4 right-4 z-10">
+          <Link href="/dashboard/DoctorAI/avatar">
+            <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-all duration-200">
+              Avatar Mode
+            </button>
+          </Link>
+        </div>
         {/* chat box */}
         <div className="overflow-y-auto h-[500px] custom-scrollbar z-10">
           {messages.map((msg) => (
