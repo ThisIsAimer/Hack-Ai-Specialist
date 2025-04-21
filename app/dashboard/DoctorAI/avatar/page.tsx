@@ -154,109 +154,98 @@ const AvatarChat = () => {
   // Set up Three.js scene and load VRM model
   useEffect(() => {
     if (!canvasRef.current) return;
-
+  
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1, 2);
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-
+  
     const loader = new GLTFLoader();
     loader.load(
       '/models/doctor_vrm1.vrm',
       async (gltf: GLTF) => {
         console.log('GLTF loaded:', gltf);
         console.log('gltf.userData:', gltf.userData); // Log metadata for debugging
-
+  
+        // Attempt VRM initialization
+        let vrm: VRM | undefined = undefined; // Changed to VRM | undefined
         try {
-          // Check for VRM metadata
-          if (!gltf.userData?.vrmMeta || !gltf.userData?.vrmHumanoid) {
-            throw new Error('Missing VRM metadata in gltf.userData');
-          }
-
-          // Manual VRM initialization
-          const vrm = new VRM({
-            scene: gltf.scene,
-            meta: gltf.userData.vrmMeta,
-            humanoid: gltf.userData.vrmHumanoid,
-            expressionManager: gltf.userData.vrmExpressionManager || undefined,
-          });
-          console.log('VRM initialized:', vrm);
-          VRMUtils.removeUnnecessaryJoints(gltf.scene);
-          vrm.scene.rotation.y = 0; // Set to 0 to face forward (adjust if needed: Math.PI, -Math.PI, Math.PI/2)
-          scene.add(vrm.scene);
-          vrmRef.current = vrm;
-
-          if (vrm.expressionManager) {
-            const expressions = vrm.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
-            console.log('Available expressions:', expressions);
-            const defaultExpression = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-            if (defaultExpression) {
-              vrm.expressionManager.setValue(defaultExpression, 0);
-            }
+          // Check if VRM metadata exists, provide fallback
+          const vrmMeta = gltf.userData?.vrmMeta || {};
+          const vrmHumanoid = gltf.userData?.vrmHumanoid || null;
+          const vrmExpressionManager = gltf.userData?.vrmExpressionManager || undefined;
+  
+          if (!vrmHumanoid) {
+            console.warn('No VRM humanoid data found, treating as generic GLTF model');
           } else {
-            console.warn('No expressionManager in VRM model');
-          }
-
-          const idleClip = createIdleAnimation(vrm.scene, vrm);
-          mixerRef.current = new THREE.AnimationMixer(vrm.scene);
-          const idleAction = mixerRef.current.clipAction(idleClip);
-          idleAction.play();
-          console.log('Playing programmatic idle animation');
-
-          if (gltf.animations && gltf.animations.length > 0) {
-            gltf.animations.forEach((clip: THREE.AnimationClip) => {
-              const action = mixerRef.current!.clipAction(clip);
-              action.play();
-              console.log(`Playing VRM animation: ${clip.name}`);
+            vrm = new VRM({
+              scene: gltf.scene,
+              meta: vrmMeta,
+              humanoid: vrmHumanoid,
+              expressionManager: vrmExpressionManager,
             });
-          } else {
-            console.warn('No animations found in VRM model');
+            console.log('VRM initialized:', vrm);
+            VRMUtils.removeUnnecessaryJoints(gltf.scene);
+            vrmRef.current = vrm; // vrmRef.current accepts VRM | null, so this is fine
           }
         } catch (error: unknown) {
           console.error('VRM initialization failed:', error);
-          // Fallback to raw GLTF scene
-          const vrmScene = gltf.scene;
-          vrmScene.rotation.y = 0; // Set to 0 to face forward (adjust if needed)
-          scene.add(vrmScene);
-          console.log('Rendering raw GLTF scene as fallback');
-
-          const idleClip = createIdleAnimation(vrmScene);
-          mixerRef.current = new THREE.AnimationMixer(vrmScene);
-          const idleAction = mixerRef.current.clipAction(idleClip);
-          idleAction.play();
-          console.log('Playing fallback idle animation');
-
-          if (gltf.animations && gltf.animations.length > 0) {
-            gltf.animations.forEach((clip: THREE.AnimationClip) => {
-              const action = mixerRef.current!.clipAction(clip);
-              action.play();
-              console.log(`Playing GLTF animation: ${clip.name}`);
-            });
-          } else {
-            console.warn('No animations found in GLTF model');
+          vrm = undefined; // Set to undefined on failure
+        }
+  
+        // Add scene to renderer (VRM or raw GLTF)
+        const modelScene = vrm ? vrm.scene : gltf.scene;
+        modelScene.rotation.y = 0; // Face forward
+        scene.add(modelScene);
+  
+        // Create and play idle animation
+        const idleClip = createIdleAnimation(modelScene, vrm); // vrm is VRM | undefined
+        mixerRef.current = new THREE.AnimationMixer(modelScene);
+        const idleAction = mixerRef.current.clipAction(idleClip);
+        idleAction.play();
+        console.log('Playing idle animation');
+  
+        // Play any existing animations
+        if (gltf.animations && gltf.animations.length > 0) {
+          gltf.animations.forEach((clip: THREE.AnimationClip) => {
+            const action = mixerRef.current!.clipAction(clip);
+            action.play();
+            console.log(`Playing animation: ${clip.name}`);
+          });
+        } else {
+          console.warn('No animations found in model');
+        }
+  
+        // Log expression manager details
+        if (vrm?.expressionManager) {
+          const expressions = vrm.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
+          console.log('Available expressions:', expressions);
+          const defaultExpression = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          if (defaultExpression) {
+            vrm.expressionManager.setValue(defaultExpression, 0);
           }
-
-          vrmRef.current = null; // Keep null to avoid VRM-specific updates
+        } else {
+          console.warn('No expressionManager available');
         }
       },
       (progress: ProgressEvent) => console.log(`Loading VRM: ${(progress.loaded / progress.total * 100).toFixed(2)}%`),
       (error: unknown) => {
         console.error('VRM load error:', error);
-        vrmRef.current = null; // Reset vrmRef on load failure
+        vrmRef.current = null;
       }
     );
-
+  
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
     scene.add(light);
-
+  
     const animate = () => {
       try {
         requestAnimationFrame(animate);
         const delta = clockRef.current.getDelta();
-
-        if (vrmRef.current) {
+  
+        if (vrmRef.current && vrmRef.current.update) {
           if (isSpeaking && vrmRef.current.expressionManager) {
             const time = clockRef.current.getElapsedTime();
             const mouthValue = Math.abs(Math.sin(time * 5));
@@ -272,33 +261,33 @@ const AvatarChat = () => {
               vrmRef.current.expressionManager.setValue(expressionName, 0);
             }
           }
-          vrmRef.current.update?.(delta); // Safe navigation
+          vrmRef.current.update(delta);
         } else {
-          console.warn('vrmRef.current is null, skipping VRM update');
+          console.log('Skipping VRM update (vrmRef.current is null or no update method)');
         }
-
+  
         if (mixerRef.current) {
           mixerRef.current.update(delta);
         }
-
+  
         renderer.render(scene, camera);
       } catch (error: unknown) {
         console.error('Animation loop error:', error);
       }
     };
     animate();
-
+  
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', handleResize);
-
+  
     return () => {
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
-      vrmRef.current = null; // Reset vrmRef on cleanup
+      vrmRef.current = null;
     };
   }, [isSpeaking]);
 
