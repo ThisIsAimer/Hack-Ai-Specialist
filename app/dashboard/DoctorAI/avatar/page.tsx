@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
-import { VRM, VRMUtils, VRMExpressionManager } from '@pixiv/three-vrm';
+import { VRM, VRMUtils } from '@pixiv/three-vrm';
 
 type Message = {
   id: number;
@@ -11,22 +11,40 @@ type Message = {
   content: string;
 };
 
+interface Models {
+  idle: VRM | null;
+  listen: VRM | null;
+  talk: VRM | null;
+}
+
+interface GLTFMap {
+  idle: GLTF;
+  listen: GLTF;
+  talk: GLTF;
+}
+
 const AvatarChat = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [listening, setListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [avatarState, setAvatarState] = useState<'idle' | 'listen' | 'talk'>('idle');
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
+  const modelsRef = useRef<Models>({ idle: null, listen: null, talk: null });
+  const gltfMapRef = useRef<GLTFMap | null>(null);
+  const currentActionRef = useRef<THREE.AnimationAction | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const currentModelRef = useRef<THREE.Object3D | null>(null);
 
   // Create a programmatic idle animation with broader bone targeting to avoid T-pose
-  const createIdleAnimation = (scene: THREE.Object3D, vrm?: VRM): THREE.AnimationClip => {
+  const createIdleAnimation = (scene: THREE.Object3D, vrm: VRM | null = null): THREE.AnimationClip => {
     const duration = 4.0;
     const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
 
-    // Try to find bones using VRM humanoid or scene traversal with common naming conventions
     const head = vrm?.humanoid?.getBoneNode('head') || findBone(scene, 'head') || findBone(scene, 'neck') || findBone(scene, 'J_Bip_C_Head');
     const leftArm = vrm?.humanoid?.getBoneNode('leftUpperArm') || findBone(scene, 'leftupperarm') || findBone(scene, 'leftarm') || findBone(scene, 'J_Bip_L_UpperArm');
     const rightArm = vrm?.humanoid?.getBoneNode('rightUpperArm') || findBone(scene, 'rightupperarm') || findBone(scene, 'rightarm') || findBone(scene, 'J_Bip_R_UpperArm');
@@ -49,7 +67,6 @@ const AvatarChat = () => {
       hips: hips?.name,
     });
 
-    // Define animation values for subtle, natural movements to avoid T-pose
     const headValues = [
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, 0.05, 0)),
@@ -60,7 +77,7 @@ const AvatarChat = () => {
 
     const armValues = [
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0, 0.1)), // Slight bend to avoid T-pose
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0, 0.1)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0, -0.1)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
@@ -68,7 +85,7 @@ const AvatarChat = () => {
 
     const foreArmValues = [
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, 0)), // Bend elbow
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, 0)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, 0)),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
@@ -99,48 +116,25 @@ const AvatarChat = () => {
     ].map((q) => [q.x, q.y, q.z, q.w]).flat();
 
     const tracks: THREE.KeyframeTrack[] = [];
-    if (head) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${head.name}.quaternion`, times, headValues));
-    }
-    if (leftArm) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${leftArm.name}.quaternion`, times, armValues));
-    }
-    if (rightArm) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${rightArm.name}.quaternion`, times, armValues));
-    }
-    if (leftForeArm) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${leftForeArm.name}.quaternion`, times, foreArmValues));
-    }
-    if (rightForeArm) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${rightForeArm.name}.quaternion`, times, foreArmValues));
-    }
-    if (leftLeg) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${leftLeg.name}.quaternion`, times, legValues));
-    }
-    if (rightLeg) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${rightLeg.name}.quaternion`, times, legValues));
-    }
-    if (spine) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${spine.name}.quaternion`, times, spineValues));
-    }
-    if (hips) {
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${hips.name}.quaternion`, times, hipsValues));
-    }
+    if (head) tracks.push(new THREE.QuaternionKeyframeTrack(`${head.name}.quaternion`, times, headValues));
+    if (leftArm) tracks.push(new THREE.QuaternionKeyframeTrack(`${leftArm.name}.quaternion`, times, armValues));
+    if (rightArm) tracks.push(new THREE.QuaternionKeyframeTrack(`${rightArm.name}.quaternion`, times, armValues));
+    if (leftForeArm) tracks.push(new THREE.QuaternionKeyframeTrack(`${leftForeArm.name}.quaternion`, times, foreArmValues));
+    if (rightForeArm) tracks.push(new THREE.QuaternionKeyframeTrack(`${rightForeArm.name}.quaternion`, times, foreArmValues));
+    if (leftLeg) tracks.push(new THREE.QuaternionKeyframeTrack(`${leftLeg.name}.quaternion`, times, legValues));
+    if (rightLeg) tracks.push(new THREE.QuaternionKeyframeTrack(`${rightLeg.name}.quaternion`, times, legValues));
+    if (spine) tracks.push(new THREE.QuaternionKeyframeTrack(`${spine.name}.quaternion`, times, spineValues));
+    if (hips) tracks.push(new THREE.QuaternionKeyframeTrack(`${hips.name}.quaternion`, times, hipsValues));
 
     if (tracks.length === 0) {
       console.warn('No bones found for idle animation, creating empty track');
-      const fallbackTrack = new THREE.VectorKeyframeTrack(
-        '.position',
-        [0, duration],
-        [0, 0, 0, 0, 0, 0]
-      );
+      const fallbackTrack = new THREE.VectorKeyframeTrack('.position', [0, duration], [0, 0, 0, 0, 0, 0]);
       tracks.push(fallbackTrack);
     }
 
     return new THREE.AnimationClip('IdleAnimation', duration, tracks);
   };
 
-  // Helper to find bones by partial name (case-insensitive)
   const findBone = (scene: THREE.Object3D, namePart: string): THREE.Object3D | undefined => {
     let found: THREE.Object3D | undefined;
     scene.traverse((object) => {
@@ -151,141 +145,179 @@ const AvatarChat = () => {
     return found;
   };
 
-  // Set up Three.js scene and load VRM model
   useEffect(() => {
     if (!canvasRef.current) return;
-  
+
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1, 2);
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-  
-    const loader = new GLTFLoader();
-    loader.load(
-      '/models/doctors/idle.vrm',
-      async (gltf: GLTF) => {
-        console.log('GLTF loaded:', gltf);
-        console.log('gltf.userData:', gltf.userData);
-    
-        let vrm: VRM | undefined = undefined;
-        try {
-          const vrmMeta = gltf.userData?.vrmMeta || {};
-          const vrmHumanoid = gltf.userData?.vrmHumanoid || null;
-          const vrmExpressionManager = gltf.userData?.vrmExpressionManager || undefined;
-    
-          if (!vrmHumanoid) {
-            console.log('No VRM humanoid data found, using GLTF model with programmatic idle animation');
-          } else {
-            vrm = new VRM({
+
+    const loadModel = (url: string): Promise<GLTF> => {
+      return new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        loader.load(
+          url,
+          (gltf) => resolve(gltf),
+          undefined,
+          (error) => reject(error)
+        );
+      });
+    };
+
+    const loadModels = async () => {
+      try {
+        const [gltfIdle, gltfListen, gltfTalk] = await Promise.all([
+          loadModel('/models/doctors/idle.vrm'),
+          loadModel('/models/doctors/listen.vrm'),
+          loadModel('/models/doctors/talk.vrm'),
+        ]);
+
+        console.log('Idle VRM userData:', gltfIdle.userData);
+        console.log('Listen VRM userData:', gltfListen.userData);
+        console.log('Talk VRM userData:', gltfTalk.userData);
+
+        gltfMapRef.current = { idle: gltfIdle, listen: gltfListen, talk: gltfTalk };
+
+        const initializeVRM = (gltf: GLTF, modelName: string): VRM | null => {
+          try {
+            if (!gltf.userData.vrmHumanoid) {
+              console.warn(`VRM humanoid data missing in ${modelName}. Falling back to raw scene.`);
+              return null;
+            }
+            const vrm = new VRM({
               scene: gltf.scene,
-              meta: vrmMeta,
-              humanoid: vrmHumanoid,
-              expressionManager: vrmExpressionManager,
+              meta: gltf.userData?.vrmMeta || {},
+              humanoid: gltf.userData?.vrmHumanoid || null,
+              expressionManager: gltf.userData?.vrmExpressionManager || undefined,
             });
-            console.log('VRM initialized:', vrm);
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
-            vrmRef.current = vrm;
+            console.log(`VRM initialized successfully for ${modelName}`);
+            return vrm;
+          } catch (error) {
+            console.error(`Failed to initialize VRM for ${modelName}:`, error);
+            return null;
           }
-        } catch (error: unknown) {
-          console.error('VRM initialization failed:', error);
-          vrm = undefined;
-        }
-    
-        const modelScene = vrm ? vrm.scene : gltf.scene;
-        modelScene.rotation.y = 0;
-        scene.add(modelScene);
-    
-        const idleClip = createIdleAnimation(modelScene, vrm);
-        mixerRef.current = new THREE.AnimationMixer(modelScene);
-        const idleAction = mixerRef.current.clipAction(idleClip);
-        idleAction.play();
-        console.log('Playing idle animation');
-    
-        if (gltf.animations && gltf.animations.length > 0) {
-          gltf.animations.forEach((clip: THREE.AnimationClip) => {
-            const action = mixerRef.current!.clipAction(clip);
-            action.play();
-            console.log(`Playing animation: ${clip.name}`);
-          });
-        } else {
-          console.log('No animations found in model, relying on programmatic idle animation');
-        }
-    
-        if (vrm?.expressionManager) {
-          const expressions = vrm.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
-          console.log('Available expressions:', expressions);
-          const defaultExpression = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-          if (defaultExpression) {
-            vrm.expressionManager.setValue(defaultExpression, 0);
-          }
-        } else {
-          console.log('No expressionManager available, facial expressions disabled');
-        }
-      },
-      (progress: ProgressEvent) => console.log(`Loading VRM: ${(progress.loaded / progress.total * 100).toFixed(2)}%`),
-      (error: unknown) => {
-        console.error('VRM load error:', error);
-        vrmRef.current = null;
+        };
+
+        modelsRef.current.idle = initializeVRM(gltfIdle, 'idle.vrm');
+        modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
+        modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
+
+        // Default to idle model
+        const initialModel = modelsRef.current.idle || { scene: gltfIdle.scene };
+        vrmRef.current = modelsRef.current.idle;
+        scene.add(initialModel.scene);
+        currentModelRef.current = initialModel.scene;
+
+        // Initialize animation mixer with idle model
+        mixerRef.current = new THREE.AnimationMixer(initialModel.scene);
+        const idleAnimation = gltfIdle.animations[0] || createIdleAnimation(initialModel.scene, modelsRef.current.idle);
+        const action = mixerRef.current.clipAction(idleAnimation);
+        action.play();
+        currentActionRef.current = action;
+
+        setModelsLoaded(true);
+      } catch (error) {
+        console.error('Error loading models:', error);
+        setModelsLoaded(false);
       }
-    );
-  
+    };
+
+    loadModels();
+
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
     scene.add(light);
-  
+
+    let animationFrameId: number | null = null;
     const animate = () => {
-      try {
-        requestAnimationFrame(animate);
-        const delta = clockRef.current.getDelta();
-  
-        if (vrmRef.current && vrmRef.current.update) {
-          if (isSpeaking && vrmRef.current.expressionManager) {
-            const time = clockRef.current.getElapsedTime();
-            const mouthValue = Math.abs(Math.sin(time * 5));
-            const expressions = vrmRef.current.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
-            const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-            if (expressionName) {
-              vrmRef.current.expressionManager.setValue(expressionName, mouthValue);
-            }
-          } else if (vrmRef.current.expressionManager) {
-            const expressions = vrmRef.current.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
-            const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-            if (expressionName) {
-              vrmRef.current.expressionManager.setValue(expressionName, 0);
-            }
+      animationFrameId = requestAnimationFrame(animate);
+      const delta = clockRef.current.getDelta();
+
+      if (vrmRef.current && typeof vrmRef.current.update === 'function') {
+        if (isSpeaking && vrmRef.current.expressionManager) {
+          const time = clockRef.current.getElapsedTime();
+          const mouthValue = Math.abs(Math.sin(time * 5));
+          const expressions = vrmRef.current.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          if (expressionName) {
+            vrmRef.current.expressionManager.setValue(expressionName, mouthValue);
           }
-          vrmRef.current.update(delta);
-        } else {
-          console.log('Skipping VRM update (vrmRef.current is null or no update method)');
+        } else if (vrmRef.current.expressionManager) {
+          const expressions = vrmRef.current.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          if (expressionName) {
+            vrmRef.current.expressionManager.setValue(expressionName, 0);
+          }
         }
-  
-        if (mixerRef.current) {
-          mixerRef.current.update(delta);
-        }
-  
-        renderer.render(scene, camera);
-      } catch (error: unknown) {
-        console.error('Animation loop error:', error);
+        vrmRef.current.update(delta);
       }
+
+      if (mixerRef.current) mixerRef.current.update(delta);
+      renderer.render(scene, camera);
     };
-    animate();
-  
+
+    if (modelsLoaded) {
+      animate();
+    }
+
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', handleResize);
-  
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
       renderer.dispose();
       vrmRef.current = null;
+      currentModelRef.current = null;
     };
-  }, [isSpeaking]);
+  }, [isSpeaking, modelsLoaded]);
 
-  // Set up speech recognition
+  useEffect(() => {
+    if (!sceneRef.current || !mixerRef.current || !modelsLoaded || !gltfMapRef.current) return;
+
+    console.log('Switching model to:', avatarState);
+
+    // Remove all models from the scene, preserving lights and cameras
+    const nonModelObjects = sceneRef.current.children.filter(
+      (child) => child instanceof THREE.Light || child instanceof THREE.Camera
+    );
+    sceneRef.current.clear();
+    nonModelObjects.forEach((obj) => sceneRef.current!.add(obj));
+
+    // Stop current animation
+    if (currentActionRef.current) {
+      currentActionRef.current.stop();
+      currentActionRef.current = null;
+    }
+
+    // Select new model
+    const newVrm = modelsRef.current[avatarState];
+    const newModel = newVrm || { scene: gltfMapRef.current[avatarState].scene };
+    vrmRef.current = newVrm;
+
+    // Add new model to scene
+    sceneRef.current.add(newModel.scene);
+    currentModelRef.current = newModel.scene;
+    console.log('Added model to scene:', avatarState);
+
+    // Initialize new animation mixer
+    mixerRef.current = new THREE.AnimationMixer(newModel.scene);
+    const animation = gltfMapRef.current[avatarState].animations[0] || createIdleAnimation(newModel.scene, newVrm);
+    const action = mixerRef.current.clipAction(animation);
+    action.play();
+    currentActionRef.current = action;
+  }, [avatarState, modelsLoaded]);
+
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -296,10 +328,14 @@ const AvatarChat = () => {
         const transcript = event.results[0][0].transcript;
         sendMessage(transcript);
       };
-      recognitionRef.current.onend = () => setListening(false);
+      recognitionRef.current.onend = () => {
+        setListening(false);
+        setAvatarState('idle');
+      };
       recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setListening(false);
+        setAvatarState('idle');
       };
     } else {
       console.error('Speech recognition not supported in this browser.');
@@ -310,6 +346,7 @@ const AvatarChat = () => {
     if (recognitionRef.current && !listening) {
       recognitionRef.current.start();
       setListening(true);
+      setAvatarState('listen');
     }
   };
 
@@ -317,13 +354,24 @@ const AvatarChat = () => {
     if (recognitionRef.current && listening) {
       recognitionRef.current.stop();
       setListening(false);
+      setAvatarState('idle');
     }
+  };
+
+  const SelectVoice = () => {
+    if ('speechSynthesis' in window) {
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices.find((voice) => voice.name === 'Google UK English Female') || voices[0];
+      return selectedVoice;
+    }
+    return null;
   };
 
   const stopTalking = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      setAvatarState('idle');
     }
   };
 
@@ -347,6 +395,7 @@ const AvatarChat = () => {
       if (response.ok) {
         const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
         setMessages((prev) => [...prev, botMessage]);
+        setAvatarState('talk');
         speakResponse(data.response);
       } else {
         console.error('API error:', data);
@@ -360,7 +409,14 @@ const AvatarChat = () => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setAvatarState('idle');
+      };
+      const selectedVoice = SelectVoice();
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
       window.speechSynthesis.speak(utterance);
     } else {
       console.error('Speech synthesis not supported in this browser.');
