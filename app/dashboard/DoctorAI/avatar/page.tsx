@@ -166,18 +166,16 @@ const AvatarChat = () => {
       '/models/test.vrm',
       async (gltf: GLTF) => {
         console.log('GLTF loaded:', gltf);
-        console.log('gltf.userData:', gltf.userData); // Log metadata for debugging
-  
-        // Attempt VRM initialization
-        let vrm: VRM | undefined = undefined; // Changed to VRM | undefined
+        console.log('gltf.userData:', gltf.userData);
+    
+        let vrm: VRM | undefined = undefined;
         try {
-          // Check if VRM metadata exists, provide fallback
           const vrmMeta = gltf.userData?.vrmMeta || {};
           const vrmHumanoid = gltf.userData?.vrmHumanoid || null;
           const vrmExpressionManager = gltf.userData?.vrmExpressionManager || undefined;
-  
+    
           if (!vrmHumanoid) {
-            console.warn('No VRM humanoid data found, treating as generic GLTF model');
+            console.log('No VRM humanoid data found, using GLTF model with programmatic idle animation');
           } else {
             vrm = new VRM({
               scene: gltf.scene,
@@ -187,26 +185,23 @@ const AvatarChat = () => {
             });
             console.log('VRM initialized:', vrm);
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
-            vrmRef.current = vrm; // vrmRef.current accepts VRM | null, so this is fine
+            vrmRef.current = vrm;
           }
         } catch (error: unknown) {
           console.error('VRM initialization failed:', error);
-          vrm = undefined; // Set to undefined on failure
+          vrm = undefined;
         }
-  
-        // Add scene to renderer (VRM or raw GLTF)
+    
         const modelScene = vrm ? vrm.scene : gltf.scene;
-        modelScene.rotation.y = 0; // Face forward
+        modelScene.rotation.y = 0;
         scene.add(modelScene);
-  
-        // Create and play idle animation
-        const idleClip = createIdleAnimation(modelScene, vrm); // vrm is VRM | undefined
+    
+        const idleClip = createIdleAnimation(modelScene, vrm);
         mixerRef.current = new THREE.AnimationMixer(modelScene);
         const idleAction = mixerRef.current.clipAction(idleClip);
         idleAction.play();
         console.log('Playing idle animation');
-  
-        // Play any existing animations
+    
         if (gltf.animations && gltf.animations.length > 0) {
           gltf.animations.forEach((clip: THREE.AnimationClip) => {
             const action = mixerRef.current!.clipAction(clip);
@@ -214,10 +209,9 @@ const AvatarChat = () => {
             console.log(`Playing animation: ${clip.name}`);
           });
         } else {
-          console.warn('No animations found in model');
+          console.log('No animations found in model, relying on programmatic idle animation');
         }
-  
-        // Log expression manager details
+    
         if (vrm?.expressionManager) {
           const expressions = vrm.expressionManager.expressions.map((exp: { expressionName: string }) => exp.expressionName);
           console.log('Available expressions:', expressions);
@@ -226,7 +220,7 @@ const AvatarChat = () => {
             vrm.expressionManager.setValue(defaultExpression, 0);
           }
         } else {
-          console.warn('No expressionManager available');
+          console.log('No expressionManager available, facial expressions disabled');
         }
       },
       (progress: ProgressEvent) => console.log(`Loading VRM: ${(progress.loaded / progress.total * 100).toFixed(2)}%`),
