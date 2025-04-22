@@ -163,7 +163,7 @@ const AvatarChat = () => {
   
     const loader = new GLTFLoader();
     loader.load(
-      '/models/test.vrm',
+      '/models/doctors/idle.vrm',
       async (gltf: GLTF) => {
         console.log('GLTF loaded:', gltf);
         console.log('gltf.userData:', gltf.userData);
