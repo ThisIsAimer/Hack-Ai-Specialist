@@ -383,15 +383,6 @@ const AvatarChat = () => {
     }
   };
 
-  const SelectVoice = () => {
-    if ('speechSynthesis' in window) {
-      const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices.find((voice) => voice.name === 'Google UK English Female') || voices[0];
-      return selectedVoice;
-    }
-    return null;
-  };
-
   const stopTalking = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -435,27 +426,9 @@ const AvatarChat = () => {
   const speakResponse = (text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        console.log('Speech started, isSpeaking set to true');
-      };
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setAvatarState('idle');
-        console.log('Speech ended, avatarState set to idle');
-      };
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error);
-        setIsSpeaking(false);
-        setAvatarState('idle');
-      };
-      const selectedVoice = SelectVoice();
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
-    } else {
-      console.error('Speech synthesis not supported in this browser.');
     }
   };
 
