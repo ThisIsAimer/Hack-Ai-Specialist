@@ -217,12 +217,22 @@ const AvatarChat = () => {
         modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
         modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
 
-        const idleModel = modelsRef.current.idle ? modelsRef.current.idle.scene : gltfIdle.scene;
-        const listenModel = modelsRef.current.listen ? modelsRef.current.listen.scene : gltfListen.scene;
-        const talkModel = modelsRef.current.talk ? modelsRef.current.talk.scene : gltfTalk.scene;
+        const scaleFactor = 3; // Scale models by 1.5x for larger appearance
+        const yOffset = -3.2; // Move models down to show upper body only
 
+        const idleModel = modelsRef.current.idle ? modelsRef.current.idle.scene : gltfIdle.scene;
+        idleModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        idleModel.position.y = yOffset;
         scene.add(idleModel);
+
+        const listenModel = modelsRef.current.listen ? modelsRef.current.listen.scene : gltfListen.scene;
+        listenModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        listenModel.position.y = yOffset;
         scene.add(listenModel);
+
+        const talkModel = modelsRef.current.talk ? modelsRef.current.talk.scene : gltfTalk.scene;
+        talkModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        talkModel.position.y = yOffset;
         scene.add(talkModel);
 
         idleModel.visible = true;
@@ -426,8 +436,14 @@ const AvatarChat = () => {
   const speakResponse = (text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setAvatarState('idle');
+        console.log('Speech ended, avatarState set to idle');
+      };
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -435,18 +451,6 @@ const AvatarChat = () => {
   return (
     <div className="relative h-screen">
       <canvas ref={canvasRef} className="w-full h-full" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/80 max-h-[50%] overflow-y-auto">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`mb-2 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
-            <span
-              className={`inline-block p-2 rounded ${
-                msg.sender === 'user' ? 'bg-indigo-500 text-white' : 'bg-gray-200'
-              }`}
-            >
-              {msg.content}
-            </span>
-          </div>
-        ))}
         <div className="flex space-x-2">
           <button
             onClick={listening ? stopListening : startListening}
@@ -462,7 +466,6 @@ const AvatarChat = () => {
           </button>
         </div>
       </div>
-    </div>
   );
 };
 
