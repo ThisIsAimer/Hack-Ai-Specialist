@@ -38,6 +38,7 @@ interface Mixers {
 
 const AvatarChat = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [listening, setListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -66,18 +67,6 @@ const AvatarChat = () => {
     const rightLeg = vrm?.humanoid?.getBoneNode('rightUpperLeg') || findBone(scene, 'rightupperleg') || findBone(scene, 'rightleg') || findBone(scene, 'J_Bip_R_UpperLeg');
     const spine = vrm?.humanoid?.getBoneNode('spine') || findBone(scene, 'spine') || findBone(scene, 'chest') || findBone(scene, 'J_Bip_C_Spine');
     const hips = vrm?.humanoid?.getBoneNode('hips') || findBone(scene, 'hips') || findBone(scene, 'pelvis') || findBone(scene, 'J_Bip_C_Hips');
-
-    console.log('Detected bones:', {
-      head: head?.name,
-      leftArm: leftArm?.name,
-      rightArm: rightArm?.name,
-      leftForeArm: leftForeArm?.name,
-      rightForeArm: rightForeArm?.name,
-      leftLeg: leftLeg?.name,
-      rightLeg: rightLeg?.name,
-      spine: spine?.name,
-      hips: hips?.name,
-    });
 
     const headValues = [
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
@@ -139,7 +128,6 @@ const AvatarChat = () => {
     if (hips) tracks.push(new THREE.QuaternionKeyframeTrack(`${hips.name}.quaternion`, times, hipsValues));
 
     if (tracks.length === 0) {
-      console.warn('No bones found for idle animation, creating empty track');
       const fallbackTrack = new THREE.VectorKeyframeTrack('.position', [0, duration], [0, 0, 0, 0, 0, 0]);
       tracks.push(fallbackTrack);
     }
@@ -157,8 +145,20 @@ const AvatarChat = () => {
     return found;
   };
 
+  const handleResize = () => {
+    if (containerRef.current && canvasRef.current && cameraRef.current && rendererRef.current) {
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      canvasRef.current.style.width = `${width}px`;
+      canvasRef.current.style.height = `${height}px`;
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
+    }
+  };
+
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !containerRef.current) return;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -166,18 +166,12 @@ const AvatarChat = () => {
     camera.position.set(0, 1, 2);
     cameraRef.current = camera;
 
-    // Create renderer with alpha: true for transparency
-    const renderer = new THREE.WebGLRenderer({ 
-      canvas: canvasRef.current, 
-      antialias: true, 
-      alpha: true 
-    });
-
-    // Set clear color to transparent (alpha = 0)
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
     renderer.setClearColor(0x000000, 0);
-
-    renderer.setSize(window.innerWidth, window.innerHeight);
     rendererRef.current = renderer;
+
+    // Set initial size
+    handleResize();
 
     const loadModel = (url: string): Promise<GLTF> => {
       return new Promise((resolve, reject) => {
@@ -199,14 +193,11 @@ const AvatarChat = () => {
           loadModel('/models/doctors/talk.vrm'),
         ]);
 
-        console.log('Models loaded successfully:', { idle: !!gltfIdle, listen: !!gltfListen, talk: !!gltfTalk });
-
         gltfMapRef.current = { idle: gltfIdle, listen: gltfListen, talk: gltfTalk };
 
         const initializeVRM = (gltf: GLTF, modelName: string): VRM | null => {
           try {
             if (!gltf.userData.vrmHumanoid) {
-              console.warn(`VRM humanoid data missing in ${modelName}. Falling back to raw scene.`);
               return null;
             }
             const vrm = new VRM({
@@ -216,10 +207,8 @@ const AvatarChat = () => {
               expressionManager: gltf.userData?.vrmExpressionManager || undefined,
             });
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
-            console.log(`VRM initialized successfully for ${modelName}`);
             return vrm;
           } catch (error) {
-            console.error(`Failed to initialize VRM for ${modelName}:`, error);
             return null;
           }
         };
@@ -228,8 +217,8 @@ const AvatarChat = () => {
         modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
         modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
 
-        const scaleFactor = 3; // Scale models by 3x for larger appearance
-        const yOffset = -3.2; // Move models down to show upper body only
+        const scaleFactor = 3;
+        const yOffset = -3.2;
 
         const centerModel = (model: THREE.Object3D) => {
           const box = new THREE.Box3().setFromObject(model);
@@ -285,9 +274,7 @@ const AvatarChat = () => {
         };
 
         setModelsLoaded(true);
-        console.log('All models loaded and added to scene');
       } catch (error) {
-        console.error('Error loading models:', error);
         setModelsLoaded(false);
       }
     };
@@ -333,13 +320,6 @@ const AvatarChat = () => {
       }
     };
 
-    const handleResize = () => {
-      if (cameraRef.current && rendererRef.current) {
-        cameraRef.current.aspect = window.innerWidth / window.innerHeight;
-        cameraRef.current.updateProjectionMatrix();
-        rendererRef.current.setSize(window.innerWidth, window.innerHeight);
-      }
-    };
     window.addEventListener('resize', handleResize);
 
     if (modelsLoaded) {
@@ -356,15 +336,8 @@ const AvatarChat = () => {
 
   useEffect(() => {
     if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) {
-      console.log('Cannot update visibility: scene, models, or model objects not ready');
       return;
     }
-
-    console.log('Updating visibility for state:', avatarState, {
-      idle: avatarState === 'idle',
-      listen: avatarState === 'listen',
-      talk: avatarState === 'talk',
-    });
 
     const { idle, listen, talk } = modelObjectsRef.current;
     if (idle) idle.visible = avatarState === 'idle';
@@ -387,12 +360,9 @@ const AvatarChat = () => {
         setAvatarState('idle');
       };
       recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error:', event.error);
         setListening(false);
         setAvatarState('idle');
       };
-    } else {
-      console.error('Speech recognition not supported in this browser.');
     }
   }, []);
 
@@ -401,7 +371,6 @@ const AvatarChat = () => {
       recognitionRef.current.start();
       setListening(true);
       setAvatarState('listen');
-      console.log('Started listening, avatarState set to listen');
     }
   };
 
@@ -410,7 +379,6 @@ const AvatarChat = () => {
       recognitionRef.current.stop();
       setListening(false);
       setAvatarState('idle');
-      console.log('Stopped listening, avatarState set to idle');
     }
   };
 
@@ -419,7 +387,6 @@ const AvatarChat = () => {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       setAvatarState('idle');
-      console.log('Stopped talking, avatarState set to idle');
     }
   };
 
@@ -444,10 +411,7 @@ const AvatarChat = () => {
         const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
         setMessages((prev) => [...prev, botMessage]);
         setAvatarState('talk');
-        console.log('API responded, avatarState set to talk');
         speakResponse(data.response);
-      } else {
-        console.error('API error:', data);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -463,31 +427,32 @@ const AvatarChat = () => {
       utterance.onend = () => {
         setIsSpeaking(false);
         setAvatarState('idle');
-        console.log('Speech ended, avatarState set to idle');
       };
       window.speechSynthesis.speak(utterance);
     }
   };
 
   return (
-    <div className='flex bg-green-700'>
+    <div>
       <BgGradient/>
-      <canvas ref={canvasRef} />
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        <button
-          onClick={listening ? stopListening : startListening}
-          className="p-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
-        >
-          {listening ? 'Stop Listening' : 'Start Listening'}
-        </button>
-        <button
-          onClick={stopTalking}
-          className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Stop Talking
-        </button>
+      <div ref={containerRef} className="relative w-full h-screen overflow-hidden">
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+        <div className="absolute bottom-4 mb-20 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          <button
+            onClick={listening ? stopListening : startListening}
+            className="p-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+          >
+            {listening ? 'Stop Listening' : 'Start Listening'}
+          </button>
+          <button
+            onClick={stopTalking}
+            className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Stop Talking
+          </button>
+        </div>
       </div>
-    </div>
+    </div>  
   );
 };
 
