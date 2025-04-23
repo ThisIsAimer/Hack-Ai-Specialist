@@ -49,8 +49,9 @@ const AvatarChat = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const mixersRef = useRef<Mixers | null>(null);
   const modelObjectsRef = useRef<ModelObjects | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
-  // Create a programmatic idle animation (unchanged)
   const createIdleAnimation = (scene: THREE.Object3D, vrm: VRM | null = null): THREE.AnimationClip => {
     const duration = 4.0;
     const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
@@ -162,8 +163,10 @@ const AvatarChat = () => {
     sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1, 2);
+    cameraRef.current = camera;
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    rendererRef.current = renderer;
 
     const loadModel = (url: string): Promise<GLTF> => {
       return new Promise((resolve, reject) => {
@@ -185,9 +188,7 @@ const AvatarChat = () => {
           loadModel('/models/doctors/talk.vrm'),
         ]);
 
-        console.log('Idle VRM userData:', gltfIdle.userData);
-        console.log('Listen VRM userData:', gltfListen.userData);
-        console.log('Talk VRM userData:', gltfTalk.userData);
+        console.log('Models loaded successfully:', { idle: !!gltfIdle, listen: !!gltfListen, talk: !!gltfTalk });
 
         gltfMapRef.current = { idle: gltfIdle, listen: gltfListen, talk: gltfTalk };
 
@@ -216,7 +217,6 @@ const AvatarChat = () => {
         modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
         modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
 
-        // Add all models to the scene
         const idleModel = modelsRef.current.idle ? modelsRef.current.idle.scene : gltfIdle.scene;
         const listenModel = modelsRef.current.listen ? modelsRef.current.listen.scene : gltfListen.scene;
         const talkModel = modelsRef.current.talk ? modelsRef.current.talk.scene : gltfTalk.scene;
@@ -225,19 +225,16 @@ const AvatarChat = () => {
         scene.add(listenModel);
         scene.add(talkModel);
 
-        // Set initial visibility
         idleModel.visible = true;
         listenModel.visible = false;
         talkModel.visible = false;
 
-        // Store model objects
         modelObjectsRef.current = {
           idle: idleModel,
           listen: listenModel,
           talk: talkModel,
         };
 
-        // Initialize animation mixers for each model
         const mixerIdle = new THREE.AnimationMixer(idleModel);
         const idleAnimation = gltfIdle.animations[0] || createIdleAnimation(idleModel, modelsRef.current.idle);
         mixerIdle.clipAction(idleAnimation).play();
@@ -257,6 +254,7 @@ const AvatarChat = () => {
         };
 
         setModelsLoaded(true);
+        console.log('All models loaded and added to scene');
       } catch (error) {
         console.error('Error loading models:', error);
         setModelsLoaded(false);
@@ -269,26 +267,23 @@ const AvatarChat = () => {
     light.position.set(1, 1, 1).normalize();
     scene.add(light);
 
-    let animationFrameId: number | null = null;
     const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
       const delta = clockRef.current.getDelta();
 
-      // Update all mixers
       if (mixersRef.current) {
         mixersRef.current.idle.update(delta);
         mixersRef.current.listen.update(delta);
         mixersRef.current.talk.update(delta);
       }
 
-      // Update VRM expressions and state for the current model
       const currentVRM = modelsRef.current[avatarState];
       if (currentVRM && currentVRM.expressionManager) {
         if (isSpeaking) {
           const time = clockRef.current.getElapsedTime();
           const mouthValue = Math.abs(Math.sin(time * 5));
           const expressions = currentVRM.expressionManager.expressions.map((exp: any) => exp.expressionName);
-          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          const expressionName = expressions.includes('aa') ? 'aa' : expressions[0] || null;
           if (expressionName) {
             currentVRM.expressionManager.setValue(expressionName, mouthValue);
           }
@@ -302,38 +297,48 @@ const AvatarChat = () => {
         currentVRM.update(delta);
       }
 
-      renderer.render(scene, camera);
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
+
+    const handleResize = () => {
+      if (cameraRef.current && rendererRef.current) {
+        cameraRef.current.aspect = window.innerWidth / window.innerHeight;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(window.innerWidth, window.innerHeight);
+      }
+    };
+    window.addEventListener('resize', handleResize);
 
     if (modelsLoaded) {
       animate();
     }
 
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
       }
-      renderer.dispose();
     };
-  }, [isSpeaking, modelsLoaded]);
+  }, [modelsLoaded]);
 
   useEffect(() => {
-    if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) return;
+    if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) {
+      console.log('Cannot update visibility: scene, models, or model objects not ready');
+      return;
+    }
 
-    console.log('Switching visibility to:', avatarState);
+    console.log('Updating visibility for state:', avatarState, {
+      idle: avatarState === 'idle',
+      listen: avatarState === 'listen',
+      talk: avatarState === 'talk',
+    });
 
-    // Toggle visibility based on avatarState
-    modelObjectsRef.current.idle.visible = avatarState === 'idle';
-    modelObjectsRef.current.listen.visible = avatarState === 'listen';
-    modelObjectsRef.current.talk.visible = avatarState === 'talk';
+    const { idle, listen, talk } = modelObjectsRef.current;
+    if (idle) idle.visible = avatarState === 'idle';
+    if (listen) listen.visible = avatarState === 'listen';
+    if (talk) talk.visible = avatarState === 'talk';
   }, [avatarState, modelsLoaded]);
 
   useEffect(() => {
@@ -365,6 +370,7 @@ const AvatarChat = () => {
       recognitionRef.current.start();
       setListening(true);
       setAvatarState('listen');
+      console.log('Started listening, avatarState set to listen');
     }
   };
 
@@ -373,6 +379,7 @@ const AvatarChat = () => {
       recognitionRef.current.stop();
       setListening(false);
       setAvatarState('idle');
+      console.log('Stopped listening, avatarState set to idle');
     }
   };
 
@@ -390,6 +397,7 @@ const AvatarChat = () => {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       setAvatarState('idle');
+      console.log('Stopped talking, avatarState set to idle');
     }
   };
 
@@ -414,6 +422,7 @@ const AvatarChat = () => {
         const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
         setMessages((prev) => [...prev, botMessage]);
         setAvatarState('talk');
+        console.log('API responded, avatarState set to talk');
         speakResponse(data.response);
       } else {
         console.error('API error:', data);
@@ -426,8 +435,17 @@ const AvatarChat = () => {
   const speakResponse = (text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        console.log('Speech started, isSpeaking set to true');
+      };
       utterance.onend = () => {
+        setIsSpeaking(false);
+        setAvatarState('idle');
+        console.log('Speech ended, avatarState set to idle');
+      };
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event.error);
         setIsSpeaking(false);
         setAvatarState('idle');
       };
