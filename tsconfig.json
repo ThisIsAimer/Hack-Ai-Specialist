@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "ES2015", // Changed from "es5" to support private fields
     "lib": [
       "dom",
       "dom.iterable",

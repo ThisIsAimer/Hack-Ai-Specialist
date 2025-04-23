@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
-import { VRM, VRMUtils } from '@pixiv/three-vrm';
+import { VRM, VRMUtils, VRMExpression } from '@pixiv/three-vrm';
 import BgGradient from '@/components/common/bg-gradient';
 
 type Message = {
@@ -34,6 +34,10 @@ interface Mixers {
   idle: THREE.AnimationMixer;
   listen: THREE.AnimationMixer;
   talk: THREE.AnimationMixer;
+}
+
+interface ChatResponse {
+  response: string;
 }
 
 const AvatarChat = () => {
@@ -170,18 +174,12 @@ const AvatarChat = () => {
     renderer.setClearColor(0x000000, 0);
     rendererRef.current = renderer;
 
-    // Set initial size
     handleResize();
 
     const loadModel = (url: string): Promise<GLTF> => {
       return new Promise((resolve, reject) => {
         const loader = new GLTFLoader();
-        loader.load(
-          url,
-          (gltf) => resolve(gltf),
-          undefined,
-          (error) => reject(error)
-        );
+        loader.load(url, resolve, undefined, reject);
       });
     };
 
@@ -195,7 +193,7 @@ const AvatarChat = () => {
 
         gltfMapRef.current = { idle: gltfIdle, listen: gltfListen, talk: gltfTalk };
 
-        const initializeVRM = (gltf: GLTF, modelName: string): VRM | null => {
+        const initializeVRM = (gltf: GLTF): VRM | null => {
           try {
             if (!gltf.userData.vrmHumanoid) {
               return null;
@@ -208,14 +206,14 @@ const AvatarChat = () => {
             });
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
             return vrm;
-          } catch (error) {
+          } catch {
             return null;
           }
         };
 
-        modelsRef.current.idle = initializeVRM(gltfIdle, 'idle.vrm');
-        modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
-        modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
+        modelsRef.current.idle = initializeVRM(gltfIdle);
+        modelsRef.current.listen = initializeVRM(gltfListen);
+        modelsRef.current.talk = initializeVRM(gltfTalk);
 
         const scaleFactor = 3;
         const yOffset = -3.2;
@@ -249,11 +247,7 @@ const AvatarChat = () => {
         listenModel.visible = false;
         talkModel.visible = false;
 
-        modelObjectsRef.current = {
-          idle: idleModel,
-          listen: listenModel,
-          talk: talkModel,
-        };
+        modelObjectsRef.current = { idle: idleModel, listen: listenModel, talk: talkModel };
 
         const mixerIdle = new THREE.AnimationMixer(idleModel);
         const idleAnimation = gltfIdle.animations[0] || createIdleAnimation(idleModel, modelsRef.current.idle);
@@ -267,14 +261,10 @@ const AvatarChat = () => {
         const talkAnimation = gltfTalk.animations[0] || createIdleAnimation(talkModel, modelsRef.current.talk);
         mixerTalk.clipAction(talkAnimation).play();
 
-        mixersRef.current = {
-          idle: mixerIdle,
-          listen: mixerListen,
-          talk: mixerTalk,
-        };
+        mixersRef.current = { idle: mixerIdle, listen: mixerListen, talk: mixerTalk };
 
         setModelsLoaded(true);
-      } catch (error) {
+      } catch {
         setModelsLoaded(false);
       }
     };
@@ -300,13 +290,13 @@ const AvatarChat = () => {
         if (isSpeaking) {
           const time = clockRef.current.getElapsedTime();
           const mouthValue = Math.abs(Math.sin(time * 5));
-          const expressions = currentVRM.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressions = currentVRM.expressionManager.expressions.map((exp: VRMExpression) => exp.expressionName);
           const expressionName = expressions.includes('aa') ? 'aa' : expressions[0] || null;
           if (expressionName) {
             currentVRM.expressionManager.setValue(expressionName, mouthValue);
           }
         } else {
-          const expressions = currentVRM.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressions = currentVRM.expressionManager.expressions.map((exp: VRMExpression) => exp.expressionName);
           const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
           if (expressionName) {
             currentVRM.expressionManager.setValue(expressionName, 0);
@@ -332,39 +322,68 @@ const AvatarChat = () => {
         rendererRef.current.dispose();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelsLoaded]);
 
   useEffect(() => {
-    if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) {
-      return;
-    }
-
+    if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) return;
     const { idle, listen, talk } = modelObjectsRef.current;
     if (idle) idle.visible = avatarState === 'idle';
     if (listen) listen.visible = avatarState === 'listen';
     if (talk) talk.visible = avatarState === 'talk';
   }, [avatarState, modelsLoaded]);
 
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript;
-        sendMessage(transcript);
-      };
-      recognitionRef.current.onend = () => {
-        setListening(false);
-        setAvatarState('idle');
-      };
-      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-        setListening(false);
-        setAvatarState('idle');
-      };
+  const sendMessage = useCallback(async (text: string) => {
+    const userMessage: Message = { id: Date.now(), sender: 'user', content: text };
+    setMessages((prev) => [...prev, userMessage]);
+
+    try {
+      const response = await fetch('/api/doctor-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: { content: [{ type: 'text', text }] },
+          conversation: messages.map((msg) => ({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.content,
+          })),
+        }),
+      });
+      const data: ChatResponse = await response.json();
+      if (response.ok) {
+        const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
+        setMessages((prev) => [...prev, botMessage]);
+        setAvatarState('talk');
+        speakResponse(data.response);
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
     }
-  }, []);
+  }, [messages]);
+
+  useEffect(() => {
+    // Use the SpeechRecognition type defined in speech.d.ts
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+          const transcript = event.results[0][0].transcript;
+          sendMessage(transcript);
+        };
+        recognitionRef.current.onend = () => {
+          setListening(false);
+          setAvatarState('idle');
+        };
+        recognitionRef.current.onerror = () => {
+          setListening(false);
+          setAvatarState('idle');
+        };
+      }
+    }
+  }, [sendMessage]);
 
   const startListening = () => {
     if (recognitionRef.current && !listening) {
@@ -390,40 +409,10 @@ const AvatarChat = () => {
     }
   };
 
-  const sendMessage = async (text: string) => {
-    const userMessage: Message = { id: Date.now(), sender: 'user', content: text };
-    setMessages((prev) => [...prev, userMessage]);
-
-    try {
-      const response = await fetch('/api/doctor-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: { content: [{ type: 'text', text }] },
-          conversation: messages.map((msg) => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.content,
-          })),
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
-        setMessages((prev) => [...prev, botMessage]);
-        setAvatarState('talk');
-        speakResponse(data.response);
-      }
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
-  };
-
   const speakResponse = (text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
+      utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
         setAvatarState('idle');
@@ -434,7 +423,7 @@ const AvatarChat = () => {
 
   return (
     <div>
-      <BgGradient/>
+      <BgGradient />
       <div ref={containerRef} className="relative w-full h-screen overflow-hidden">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
         <div className="absolute bottom-4 mb-20 left-1/2 transform -translate-x-1/2 flex space-x-2">
@@ -452,7 +441,7 @@ const AvatarChat = () => {
           </button>
         </div>
       </div>
-    </div>  
+    </div>
   );
 };
 
