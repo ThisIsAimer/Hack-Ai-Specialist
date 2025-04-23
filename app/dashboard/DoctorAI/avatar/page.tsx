@@ -18,6 +18,11 @@ interface Models {
   talk: VRM | null;
 }
 
+interface ChatResponse {
+  response?: string; // Present in success case
+  error?: string;   // Present in error case
+}
+
 interface GLTFMap {
   idle: GLTF;
   listen: GLTF;
@@ -34,10 +39,6 @@ interface Mixers {
   idle: THREE.AnimationMixer;
   listen: THREE.AnimationMixer;
   talk: THREE.AnimationMixer;
-}
-
-interface ChatResponse {
-  response: string;
 }
 
 const AvatarChat = () => {
@@ -338,23 +339,26 @@ const AvatarChat = () => {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const response = await fetch('/api/doctor-chat', {
+      const response = await fetch('/api/doctor-chat/doctor-avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: { content: [{ type: 'text', text }] },
+          message: text,
           conversation: messages.map((msg) => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.content,
           })),
         }),
       });
+
       const data: ChatResponse = await response.json();
-      if (response.ok) {
+      if (response.ok && data.response) {
         const botMessage: Message = { id: Date.now() + 1, sender: 'bot', content: data.response };
         setMessages((prev) => [...prev, botMessage]);
         setAvatarState('talk');
         speakResponse(data.response);
+      } else {
+        console.error('API error:', data.error || 'Unknown error');
       }
     } catch (err) {
       console.error('Error sending message:', err);
