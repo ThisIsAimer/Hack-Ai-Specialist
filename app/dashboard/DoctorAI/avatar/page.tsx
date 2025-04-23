@@ -23,6 +23,18 @@ interface GLTFMap {
   talk: GLTF;
 }
 
+interface ModelObjects {
+  idle: THREE.Object3D;
+  listen: THREE.Object3D;
+  talk: THREE.Object3D;
+}
+
+interface Mixers {
+  idle: THREE.AnimationMixer;
+  listen: THREE.AnimationMixer;
+  talk: THREE.AnimationMixer;
+}
+
 const AvatarChat = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -31,16 +43,14 @@ const AvatarChat = () => {
   const [avatarState, setAvatarState] = useState<'idle' | 'listen' | 'talk'>('idle');
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const vrmRef = useRef<VRM | null>(null);
-  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
   const modelsRef = useRef<Models>({ idle: null, listen: null, talk: null });
   const gltfMapRef = useRef<GLTFMap | null>(null);
-  const currentActionRef = useRef<THREE.AnimationAction | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
-  const currentModelRef = useRef<THREE.Object3D | null>(null);
+  const mixersRef = useRef<Mixers | null>(null);
+  const modelObjectsRef = useRef<ModelObjects | null>(null);
 
-  // Create a programmatic idle animation with broader bone targeting to avoid T-pose
+  // Create a programmatic idle animation (unchanged)
   const createIdleAnimation = (scene: THREE.Object3D, vrm: VRM | null = null): THREE.AnimationClip => {
     const duration = 4.0;
     const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
@@ -206,18 +216,45 @@ const AvatarChat = () => {
         modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
         modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
 
-        // Default to idle model
-        const initialModel = modelsRef.current.idle || { scene: gltfIdle.scene };
-        vrmRef.current = modelsRef.current.idle;
-        scene.add(initialModel.scene);
-        currentModelRef.current = initialModel.scene;
+        // Add all models to the scene
+        const idleModel = modelsRef.current.idle ? modelsRef.current.idle.scene : gltfIdle.scene;
+        const listenModel = modelsRef.current.listen ? modelsRef.current.listen.scene : gltfListen.scene;
+        const talkModel = modelsRef.current.talk ? modelsRef.current.talk.scene : gltfTalk.scene;
 
-        // Initialize animation mixer with idle model
-        mixerRef.current = new THREE.AnimationMixer(initialModel.scene);
-        const idleAnimation = gltfIdle.animations[0] || createIdleAnimation(initialModel.scene, modelsRef.current.idle);
-        const action = mixerRef.current.clipAction(idleAnimation);
-        action.play();
-        currentActionRef.current = action;
+        scene.add(idleModel);
+        scene.add(listenModel);
+        scene.add(talkModel);
+
+        // Set initial visibility
+        idleModel.visible = true;
+        listenModel.visible = false;
+        talkModel.visible = false;
+
+        // Store model objects
+        modelObjectsRef.current = {
+          idle: idleModel,
+          listen: listenModel,
+          talk: talkModel,
+        };
+
+        // Initialize animation mixers for each model
+        const mixerIdle = new THREE.AnimationMixer(idleModel);
+        const idleAnimation = gltfIdle.animations[0] || createIdleAnimation(idleModel, modelsRef.current.idle);
+        mixerIdle.clipAction(idleAnimation).play();
+
+        const mixerListen = new THREE.AnimationMixer(listenModel);
+        const listenAnimation = gltfListen.animations[0] || createIdleAnimation(listenModel, modelsRef.current.listen);
+        mixerListen.clipAction(listenAnimation).play();
+
+        const mixerTalk = new THREE.AnimationMixer(talkModel);
+        const talkAnimation = gltfTalk.animations[0] || createIdleAnimation(talkModel, modelsRef.current.talk);
+        mixerTalk.clipAction(talkAnimation).play();
+
+        mixersRef.current = {
+          idle: mixerIdle,
+          listen: mixerListen,
+          talk: mixerTalk,
+        };
 
         setModelsLoaded(true);
       } catch (error) {
@@ -237,26 +274,34 @@ const AvatarChat = () => {
       animationFrameId = requestAnimationFrame(animate);
       const delta = clockRef.current.getDelta();
 
-      if (vrmRef.current && typeof vrmRef.current.update === 'function') {
-        if (isSpeaking && vrmRef.current.expressionManager) {
-          const time = clockRef.current.getElapsedTime();
-          const mouthValue = Math.abs(Math.sin(time * 5));
-          const expressions = vrmRef.current.expressionManager.expressions.map((exp: any) => exp.expressionName);
-          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-          if (expressionName) {
-            vrmRef.current.expressionManager.setValue(expressionName, mouthValue);
-          }
-        } else if (vrmRef.current.expressionManager) {
-          const expressions = vrmRef.current.expressionManager.expressions.map((exp: any) => exp.expressionName);
-          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
-          if (expressionName) {
-            vrmRef.current.expressionManager.setValue(expressionName, 0);
-          }
-        }
-        vrmRef.current.update(delta);
+      // Update all mixers
+      if (mixersRef.current) {
+        mixersRef.current.idle.update(delta);
+        mixersRef.current.listen.update(delta);
+        mixersRef.current.talk.update(delta);
       }
 
-      if (mixerRef.current) mixerRef.current.update(delta);
+      // Update VRM expressions and state for the current model
+      const currentVRM = modelsRef.current[avatarState];
+      if (currentVRM && currentVRM.expressionManager) {
+        if (isSpeaking) {
+          const time = clockRef.current.getElapsedTime();
+          const mouthValue = Math.abs(Math.sin(time * 5));
+          const expressions = currentVRM.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          if (expressionName) {
+            currentVRM.expressionManager.setValue(expressionName, mouthValue);
+          }
+        } else {
+          const expressions = currentVRM.expressionManager.expressions.map((exp: any) => exp.expressionName);
+          const expressionName = expressions.includes('neutral') ? 'neutral' : expressions[0] || null;
+          if (expressionName) {
+            currentVRM.expressionManager.setValue(expressionName, 0);
+          }
+        }
+        currentVRM.update(delta);
+      }
+
       renderer.render(scene, camera);
     };
 
@@ -277,45 +322,18 @@ const AvatarChat = () => {
         cancelAnimationFrame(animationFrameId);
       }
       renderer.dispose();
-      vrmRef.current = null;
-      currentModelRef.current = null;
     };
   }, [isSpeaking, modelsLoaded]);
 
   useEffect(() => {
-    if (!sceneRef.current || !mixerRef.current || !modelsLoaded || !gltfMapRef.current) return;
+    if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) return;
 
-    console.log('Switching model to:', avatarState);
+    console.log('Switching visibility to:', avatarState);
 
-    // Remove all models from the scene, preserving lights and cameras
-    const nonModelObjects = sceneRef.current.children.filter(
-      (child) => child instanceof THREE.Light || child instanceof THREE.Camera
-    );
-    sceneRef.current.clear();
-    nonModelObjects.forEach((obj) => sceneRef.current!.add(obj));
-
-    // Stop current animation
-    if (currentActionRef.current) {
-      currentActionRef.current.stop();
-      currentActionRef.current = null;
-    }
-
-    // Select new model
-    const newVrm = modelsRef.current[avatarState];
-    const newModel = newVrm || { scene: gltfMapRef.current[avatarState].scene };
-    vrmRef.current = newVrm;
-
-    // Add new model to scene
-    sceneRef.current.add(newModel.scene);
-    currentModelRef.current = newModel.scene;
-    console.log('Added model to scene:', avatarState);
-
-    // Initialize new animation mixer
-    mixerRef.current = new THREE.AnimationMixer(newModel.scene);
-    const animation = gltfMapRef.current[avatarState].animations[0] || createIdleAnimation(newModel.scene, newVrm);
-    const action = mixerRef.current.clipAction(animation);
-    action.play();
-    currentActionRef.current = action;
+    // Toggle visibility based on avatarState
+    modelObjectsRef.current.idle.visible = avatarState === 'idle';
+    modelObjectsRef.current.listen.visible = avatarState === 'listen';
+    modelObjectsRef.current.talk.visible = avatarState === 'talk';
   }, [avatarState, modelsLoaded]);
 
   useEffect(() => {
