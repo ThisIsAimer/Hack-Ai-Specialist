@@ -19,8 +19,8 @@ interface Models {
 }
 
 interface ChatResponse {
-  response?: string; // Present in success case
-  error?: string;   // Present in error case
+  response?: string;
+  error?: string;
 }
 
 interface GLTFMap {
@@ -63,15 +63,15 @@ const AvatarChat = () => {
     const duration = 4.0;
     const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
 
-    const head = vrm?.humanoid?.getBoneNode('head') || findBone(scene, 'head') || findBone(scene, 'neck') || findBone(scene, 'J_Bip_C_Head');
-    const leftArm = vrm?.humanoid?.getBoneNode('leftUpperArm') || findBone(scene, 'leftupperarm') || findBone(scene, 'leftarm') || findBone(scene, 'J_Bip_L_UpperArm');
-    const rightArm = vrm?.humanoid?.getBoneNode('rightUpperArm') || findBone(scene, 'rightupperarm') || findBone(scene, 'rightarm') || findBone(scene, 'J_Bip_R_UpperArm');
+    const head = vrm?.humanoid?.getBoneNode('head') || findBone(scene, 'head') || findBone(scene, 'neck');
+    const leftArm = vrm?.humanoid?.getBoneNode('leftUpperArm') || findBone(scene, 'leftupperarm') || findBone(scene, 'leftarm');
+    const rightArm = vrm?.humanoid?.getBoneNode('rightUpperArm') || findBone(scene, 'rightupperarm') || findBone(scene, 'rightarm');
     const leftForeArm = findBone(scene, 'leftlowerarm') || findBone(scene, 'leftforearm') || findBone(scene, 'J_Bip_L_LowerArm');
-    const rightForeArm = findBone(scene, 'rightlowerarm') || findBone(scene, 'rightforearm') || findBone(scene, 'J_Bip_R_LowerArm');
-    const leftLeg = vrm?.humanoid?.getBoneNode('leftUpperLeg') || findBone(scene, 'leftupperleg') || findBone(scene, 'leftleg') || findBone(scene, 'J_Bip_L_UpperLeg');
-    const rightLeg = vrm?.humanoid?.getBoneNode('rightUpperLeg') || findBone(scene, 'rightupperleg') || findBone(scene, 'rightleg') || findBone(scene, 'J_Bip_R_UpperLeg');
-    const spine = vrm?.humanoid?.getBoneNode('spine') || findBone(scene, 'spine') || findBone(scene, 'chest') || findBone(scene, 'J_Bip_C_Spine');
-    const hips = vrm?.humanoid?.getBoneNode('hips') || findBone(scene, 'hips') || findBone(scene, 'pelvis') || findBone(scene, 'J_Bip_C_Hips');
+    const rightForeArm = findBone(scene, 'rightlowerarm') || findBone(scene, 'rightforearm');
+    const leftLeg = vrm?.humanoid?.getBoneNode('leftUpperLeg') || findBone(scene, 'leftupperleg') || findBone(scene, 'leftleg');
+    const rightLeg = vrm?.humanoid?.getBoneNode('rightUpperLeg') || findBone(scene, 'rightupperleg') || findBone(scene, 'rightleg');
+    const spine = vrm?.humanoid?.getBoneNode('spine') || findBone(scene, 'spine') || findBone(scene, 'chest');
+    const hips = vrm?.humanoid?.getBoneNode('hips') || findBone(scene, 'hips') || findBone(scene, 'pelvis');
 
     const headValues = [
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
@@ -270,8 +270,6 @@ const AvatarChat = () => {
       }
     };
 
-    loadModels();
-
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
     scene.add(light);
@@ -311,11 +309,10 @@ const AvatarChat = () => {
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    loadModels();
+    animate();
 
-    if (modelsLoaded) {
-      animate();
-    }
+    window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -323,8 +320,7 @@ const AvatarChat = () => {
         rendererRef.current.dispose();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelsLoaded]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sceneRef.current || !modelsLoaded || !modelObjectsRef.current) return;
@@ -366,7 +362,6 @@ const AvatarChat = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Use the SpeechRecognition type defined in speech.d.ts
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -430,6 +425,11 @@ const AvatarChat = () => {
       <BgGradient />
       <div ref={containerRef} className="relative w-full h-screen overflow-hidden">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+        {!modelsLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center text-black font-bold">
+            Loading model...
+          </div>
+        )}
         <div className="absolute bottom-4 mb-20 left-1/2 transform -translate-x-1/2 flex space-x-2">
           <button
             onClick={listening ? stopListening : startListening}

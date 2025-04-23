@@ -1,143 +1,139 @@
-# AI Specialist
+![github-submission-banner](https://github.com/user-attachments/assets/a1493b84-e4e2-456e-a791-ce35ee2bcf2f)
 
-Welcome to **AI Specialist**, a cutting-edge web application built to provide specialized AI-driven solutions. Powered by the Next.js framework, TypeScript, and a modern tech stack, this project delivers highly interactive and intelligent AI agents tailored for specific domains: **Doctor AI**, **Teacher AI**, **Lawyer AI**, and **Accountant AI**. With features like image and file reading, Retrieval-Augmented Generation (RAG), and a robust database integration, AI Specialist is designed to offer precise, context-aware responses for professional tasks.
+# 🚀 Project Title
+AI Specialist at your fingertips
 
-## Features
+# 📌 Problem Statement
+Problem Statement 1- Weave AI magic with Groq
 
-- **Specialized AI Agents**: Four expertly prompted AI agents:
-  - **Doctor AI**: Provides medical insights and advice (not a substitute for professional medical consultation).
-  - **Teacher AI**: Assists with educational content, explanations, and tutoring.
-  - **Lawyer AI**: Offers legal information and guidance (not legal advice).
-  - **Accountant AI**: Helps with financial calculations, tax queries, and accounting tasks.
-- **Image and File Reading**: Upload and process images or files to extract relevant information, powered by the Groq API and Cloudinary.
-- **Retrieval-Augmented Generation (RAG)**: Enhances AI responses with context from a Neon DB, ensuring accurate and relevant answers.
-- **Modern UI**: Built with Tailwind CSS and shadcn/ui for a sleek, responsive, and user-friendly interface.
-- **Secure Authentication**: Implements Kinde for seamless and secure user authentication.
-- **Scalable Backend**: Uses Prisma ORM with Neon DB for efficient data management and querying.
+# 🎯 Objective
+- Limited availability of specialized experts in many regions.
+- Consultations are often expensive and not affordable for all.
+- Waiting times slow down critical decision making and actions.
+- AI Specialist is designed to offer precise, context-aware responses for professional tasks.
 
-## Tech Stack
+<hr style="border:2px solid #3d444d; margin-top: 2rem;">
 
-- **Framework**: Next.js (React framework with server-side rendering and API routes)
-- **Language**: TypeScript (Static typing for robust code)
-- **Styling**: Tailwind CSS (Utility-first CSS framework)
-- **UI Components**: shadcn/ui (Accessible, customizable UI components)
-- **Authentication**: Kinde (Secure and easy-to-use authentication)
-- **AI API**: Groq (High-performance AI inference for specialized tasks)
-- **Image/File Storage**: Cloudinary (Cloud-based media management)
-- **Database**: Neon DB (Serverless PostgreSQL) with Prisma (Modern ORM)
+## 🧠 Team & Approach
+### Team Name: RisingDevelopers
+### Team Members: 
+- Raunak (https://github.com/ThisIsAimer)
+- Akriti (https://github.com/ThisIsAkriti)
 
-## Getting Started
+## Your Approach:
+- Planning and Setup:
+   - Defined project scope: AI agents (DoctorAI, TeacherAI, LawyerAI) with text, image, and file processing using Groq API and RAG.
+   - Initialized Next.js with TypeScript, installed Tailwind CSS, Shadcn UI, Prisma, and Neon DB. Set up Cloudinary for file storage and Kinde for authentication.
+- Authentication:
+   - Integrated Kinde for secure user login/signup, configuring API routes and environment variables for session management.
+- UI Development:
+   - Built responsive UI with Shadcn components and Tailwind CSS, creating reusable components for agent selection, chat, and file uploads.
+- AI Agent Integration:
+   - Implemented Groq API for text-based agent responses, defining specialized system prompts for each agent (e.g., DoctorAI for medical queries).
+   - Used Cloudinary to handle image/file uploads, as Groq API lacks file reading support.
+- RAG Implementation:
+   - Set up Prisma with Neon DB to store document embeddings for RAG, enabling context-aware responses by retrieving relevant data before generating answers with Groq.
+- AI Avatar for Voice:
+   - Developed a 3D AI avatar for DoctorAI using Three.js and vrm files for voice input/output, integrating with Groq for response generation.
+- Testing and Refinement:
+   - Tested agent functionality, file handling, and voice features. Fixed TypeScript errors and optimized API calls for performance.
 
-### Prerequisites
+<hr style="border:2px solid #3d444d ; margin-top: 2rem;">
 
-- **Node.js**: Version 18.x or higher
-- **npm** or **yarn**: Package manager for dependencies
-- **Accounts and API Keys**:
-  - Kinde (for authentication)
-  - Groq (for AI inference)
-  - Cloudinary (for image/file storage)
-  - Neon DB (for database hosting)
+## 🛠️ Teach Stack
+### Core Technologies Used:
+- **Frontend**: Next.js, React.js, TypeScript, Tailwind CSS, shadcn/ui, Blender 
+- **Backend**: Next.js, Kinde
+- **Database**: Neon DB with Prisma (Modern ORM)
+- **Apis**: Groq, Cloudinary
+- **Hosting**: vercel
 
-### Installation
+## Sponsor Technologies Used:
+- **✅ Groq**: 
+   - Reading image, text and voice data. Fetching reading and voice data.  
+   - Implemented RAG which enhances AI responses with context from a Neon DB, ensuring accurate and relevant answers.
 
-1. **Clone the Repository**:
+<hr style="border:2px solid #3d444d; margin-top: 2rem;">
 
-   ```bash
-   git clone https://github.com/your-username/ai-specialist.git
-   cd ai-specialist
-   ```
+## ✨ Key Features
+- **✅ Conversation with AI**: Fire up DoctorAI's voice chat to talk with our AI agent in real-time
+- **✅ Image and File Reading**: Upload and process images or files to extract relevant information, powered by the Groq API and Cloudinary.
+- **✅ Retrieval-Augmented Generation (RAG)**: Enhances AI responses with context from a Neon DB, ensuring accurate and relevant answers.
 
-2. **Install Dependencies**:
+![alt text](hackSS1.png)
+![alt text](hackSS2.png)
+![alt text](hackSS3.png)
+![alt text](hackSS5.png)
+![alt text](hackSS6.png)
+![alt text](hackSS7.png)
 
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
+<hr style="border:2px solid #3d444d; margin-top: 2rem;">
 
-3. **Set Up Prisma**: Initialize the database schema:
+## ✅ Tasks and Bonus Checklist
+- ✅ All members of the team completed the mandatory task - Followed at least 2 of our social channels and filled the form (Details in Participant Manual)
+- ✅ All members of the team completed Bonus Task 1 - Sharing of Badges and filled the form (2 points) (Details in Participant Manual)
+- ✅ All members of the team completed Bonus Task 2 - Signing up for Sprint.dev and filled the form (3 points) (Details in Participant Manual)
 
-   ```bash
-   npx prisma db push
-   ```
-
-4. **Run the Development Server**:
-
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-   Open http://localhost:3000 in your browser to see the app.
-
-### Building for Production
-
-1. **Build the Application**:
-
-   ```bash
-   npm run build
-   ```
-
-2. **Start the Production Server**:
-
-   ```bash
-   npm start
-   ```
-
-## Project Structure
-
+# 🧪 How to Run the Project
+### Requirements:
+- Next.js/React.js/Node.js/Tailwind
+- API Keys:
+   -  Groq (for AI inference)
+   - Cloudinary (for image/file storage)
+   - Neon DB (for database hosting)
+- **.env file**:
 ```
-ai-specialist/
-├── app/                    # Next.js app directory (pages, API routes)
-├── components/             # Reusable React components
-├── lib/                    # Utilities (Prisma client, API helpers)
-├── prisma/                 # Prisma schema and migrations
-├── public/                 # Static assets
-├── styles/                 # Tailwind CSS configuration
-├── .env.local              # Environment variables (not tracked)
-├── next.config.js          # Next.js configuration
-├── tsconfig.json           # TypeScript configuration
-├── middleware.ts           # middleware for kinde
-├── slide-slick.d.ts        # component for slick
-└── README.md               # Project documentation
+   - GROQ_API_KEY=your_groq_api_key
+   - KINDE_CLIENT_ID=your_client_id
+   - KINDE_CLIENT_SECRET=your_client_secret
+   - KINDE_ISSUER_URL=https://your-domain.kinde.com/
+   - KINDE_SITE_URL=http://localhost:3000/
+   - KINDE_POST_LOGIN_REDIRECT_URL=http://localhost:3000/dashboard
+   - KINDE_POST_LOGOUT_REDIRECT_URL=http://localhost:3000/
+   - DATABASE_URL=postgresql://neondb_database_url
+   - Cloudinary (for image and file uploads)
+   - CLOUDINARY_CLOUD_NAME=your_cloud_name
+   - CLOUDINARY_API_KEY=your_api_key
+   - CLOUDINARY_API_SECRET=your_api_secret
+   - CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+   - DOCTOR_PROMPT=write_your_syetem_prompt
+   - TEACHER_PROMPT=write_your_syetem_prompt
+   - ACCOUNTANT_PROMPT=write_your_syetem_prompt
+   - PROGRAMMER_PROMPT=write_your_syetem_prompt
+   - LAWYER_PROMPT=write_your_syetem_prompt
+   - DOCTOR_AVATAR=write_your_syetem_prompt 
 ```
 
-## Usage
+## Local Setup
+      # Clone the Repo
+         git clone https://github.com/your-username/ai-specialist.git
+     
 
-1. **Sign Up / Log In**:
-   - Use the Kinde authentication flow to create an account or log in.
-2. **Interact with AI Agents**:
-   - Select an AI agent (Doctor, Teacher, Lawyer, Accountant or programmer) from the dashboard (more on the way).
-   - Input queries via text, upload images, or files for processing.
-3. **RAG-Powered Responses**:
-   - The app retrieves relevant documents from Neon DB to augment AI responses, ensuring context-aware answers.
-4. **Manage Media**:
-   - Upload images or files via Cloudinary integration for analysis by the AI agents.
+      # Install Dependencies:
+         cd project-name
+         npm install
+        
+      3. Set Up Prisma: Initialize the database schema:
+         npx prisma db push
+         
+      4. Run the Development Server:
+         npm run dev
 
-## Contributing
+## 🧬  Future Scope
+- Adding more helpful ai agents.
+- Setting up avatar for each agents(like DoctorAI).
+- Improving mesh quality and animations of avatars.
 
-We welcome contributions! To get started:
+## 📎 Resources/ Credits
+- Groq for AI integration.
+- Kinde for authentication.
+- Cloudinary for image and file processing.
+- Prisma and neondb
+- Blender for meshes and vrm files
+- Tailwind, Threejs, Shadcn, react-slick
 
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature`).
-3. Make your changes and commit (`git commit -m "Add your feature"`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a Pull Request.
-
-Please follow our Code of Conduct and ensure your code adheres to the project's style guidelines.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Contact
-
-For questions or feedback, reach out to the project maintainers:
-
-- **Email**: androworkspace@gmail.com
-- **GitHub Issues**: AI Specialist Issues
-
----
+# 🏁 Final Words
+   - Building this AI agents project was a thrilling journey, blending cutting-edge tech with creative problem-solving. We loved crafting specialized agents like DoctorAI and integrating voice avatars, pushing the boundaries of user interaction. 
+   - The challenges—tackling Groq API limitations, fine-tuning RAG, and ensuring seamless authentication—tested our skills but fueled our growth. This hackathon was a rollercoaster of innovation and learning, and we’re proud of the result!
 
 Built with ❤️ by Team RisingDevelopers
