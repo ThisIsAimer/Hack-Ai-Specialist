@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import { VRM, VRMUtils } from '@pixiv/three-vrm';
+import BgGradient from '@/components/common/bg-gradient';
 
 type Message = {
   id: number;
@@ -164,7 +165,17 @@ const AvatarChat = () => {
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1, 2);
     cameraRef.current = camera;
-    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
+
+    // Create renderer with alpha: true for transparency
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas: canvasRef.current, 
+      antialias: true, 
+      alpha: true 
+    });
+
+    // Set clear color to transparent (alpha = 0)
+    renderer.setClearColor(0x000000, 0);
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     rendererRef.current = renderer;
 
@@ -436,7 +447,7 @@ const AvatarChat = () => {
         console.log('API responded, avatarState set to talk');
         speakResponse(data.response);
       } else {
-        console.error('API error emoc:', data);
+        console.error('API error:', data);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -459,7 +470,8 @@ const AvatarChat = () => {
   };
 
   return (
-    <div>
+    <div className='flex bg-green-700'>
+      <BgGradient/>
       <canvas ref={canvasRef} />
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
         <button
