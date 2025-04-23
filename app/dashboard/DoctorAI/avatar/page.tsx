@@ -217,21 +217,31 @@ const AvatarChat = () => {
         modelsRef.current.listen = initializeVRM(gltfListen, 'listen.vrm');
         modelsRef.current.talk = initializeVRM(gltfTalk, 'talk.vrm');
 
-        const scaleFactor = 3; // Scale models by 1.5x for larger appearance
+        const scaleFactor = 3; // Scale models by 3x for larger appearance
         const yOffset = -3.2; // Move models down to show upper body only
+
+        const centerModel = (model: THREE.Object3D) => {
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          model.position.x = -center.x;
+          model.position.z = -center.z;
+        };
 
         const idleModel = modelsRef.current.idle ? modelsRef.current.idle.scene : gltfIdle.scene;
         idleModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        centerModel(idleModel);
         idleModel.position.y = yOffset;
         scene.add(idleModel);
 
         const listenModel = modelsRef.current.listen ? modelsRef.current.listen.scene : gltfListen.scene;
         listenModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        centerModel(listenModel);
         listenModel.position.y = yOffset;
         scene.add(listenModel);
 
         const talkModel = modelsRef.current.talk ? modelsRef.current.talk.scene : gltfTalk.scene;
         talkModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        centerModel(talkModel);
         talkModel.position.y = yOffset;
         scene.add(talkModel);
 
@@ -426,7 +436,7 @@ const AvatarChat = () => {
         console.log('API responded, avatarState set to talk');
         speakResponse(data.response);
       } else {
-        console.error('API error:', data);
+        console.error('API error emoc:', data);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -449,23 +459,23 @@ const AvatarChat = () => {
   };
 
   return (
-    <div className="relative h-screen">
-      <canvas ref={canvasRef} className="w-full h-full" />
-        <div className="flex space-x-2">
-          <button
-            onClick={listening ? stopListening : startListening}
-            className="mt-2 p-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
-          >
-            {listening ? 'Stop Listening' : 'Start Listening'}
-          </button>
-          <button
-            onClick={stopTalking}
-            className="mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Stop Talking
-          </button>
-        </div>
+    <div>
+      <canvas ref={canvasRef} />
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+        <button
+          onClick={listening ? stopListening : startListening}
+          className="p-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+        >
+          {listening ? 'Stop Listening' : 'Start Listening'}
+        </button>
+        <button
+          onClick={stopTalking}
+          className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          Stop Talking
+        </button>
       </div>
+    </div>
   );
 };
 
