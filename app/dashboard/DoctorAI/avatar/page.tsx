@@ -426,8 +426,13 @@ const AvatarChat = () => {
       <div ref={containerRef} className="relative w-full h-screen overflow-hidden">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
         {!modelsLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center text-black font-bold">
-            Loading model...
+          <div className='absolute inset-0 flex flex-col items-center justify-center'>
+            <div className="text-black font-bold">
+              Loading model...
+            </div>
+            <div className='text-black text-xs'>
+              {"(May take up to 5 mins...)"}
+            </div>
           </div>
         )}
         <div className="absolute bottom-4 mb-20 left-1/2 transform -translate-x-1/2 flex space-x-2">
