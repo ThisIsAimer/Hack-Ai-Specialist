@@ -60,12 +60,12 @@ Problem Statement 1- Weave AI magic with Groq
 - **✅ Image and File Reading**: Upload and process images or files to extract relevant information, powered by the Groq API and Cloudinary.
 - **✅ Retrieval-Augmented Generation (RAG)**: Enhances AI responses with context from a Neon DB, ensuring accurate and relevant answers.
 
-![home](ai-sp1.png)
-![about](ai-sp2.png)
-![dashboardt](ai-sp-3.png)
-![different](ai-sp4.png)
-![chat](ai-sp5.png)
-![avatar](ai-sp6.png)
+![home](readmeImg/ai-sp1.png)
+![about](readmeImg/ai-sp2.png)
+![dashboardt](readmeImg/ai-sp3.png)
+![different](readmeImg/ai-sp4.png)
+![chat](readmeImg/ai-sp5.png)
+![avatar](readmeImg/ai-sp6.png)
 
 <hr style="border:2px solid #3d444d; margin-top: 2rem;">
 
