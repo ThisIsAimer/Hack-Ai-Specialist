@@ -431,7 +431,7 @@ const AvatarChat = () => {
               Loading model...
             </div>
             <div className='text-black text-xs'>
-              {"(May take up to 5 mins...)"}
+              {"(May take a few mins...)"}
             </div>
           </div>
         )}
