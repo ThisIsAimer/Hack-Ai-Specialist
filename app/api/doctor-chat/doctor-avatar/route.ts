@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+<<<<<<< HEAD
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -69,10 +70,31 @@ export async function POST(req: import('next/server').NextRequest) {
         model: 'mixtral-8x7b-32768',
         messages: [{ role: 'user', content: message }],
         max_tokens: 500,
+=======
+
+export async function POST(request: Request) {
+  try {
+    const { message } = await request.json();
+    if (!message) {
+      return NextResponse.json({ error: 'No message provided' }, { status: 400 });
+    }
+
+    const groqResponse = await fetch('https://api.groq.com/v1/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'mixtral-8x7b-32768',
+        prompt: message,
+        max_tokens: 150,
+>>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
       }),
     });
 
     if (!groqResponse.ok) {
+<<<<<<< HEAD
       const errorText = await groqResponse.text();
       return NextResponse.json(
         { error: `Groq API error: ${errorText}` },
@@ -166,3 +188,22 @@ export async function POST(req: import('next/server').NextRequest) {
     );
   }
 }
+=======
+      throw new Error(`Groq API error: ${groqResponse.statusText}`);
+    }
+
+    const data = await groqResponse.json();
+    if (!data.choices || !data.choices[0].text) {
+      throw new Error('Invalid response from Groq API');
+    }
+
+    return NextResponse.json({ response: data.choices[0].text.trim() });
+  } catch (error) {
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process request' },
+      { status: 500 }
+    );
+  }
+}
+>>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
