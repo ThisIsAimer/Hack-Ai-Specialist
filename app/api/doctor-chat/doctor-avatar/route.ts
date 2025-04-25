@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { cleanEnv, str } from 'envalid';
 import sanitizeHtml from 'sanitize-html';
 
@@ -44,7 +42,7 @@ export async function POST(req: import('next/server').NextRequest) {
       );
     }
 
-    // Validate body is an object with a 'message' string property
+    // Validate body
     if (
       typeof body !== 'object' ||
       body === null ||
@@ -57,7 +55,6 @@ export async function POST(req: import('next/server').NextRequest) {
       );
     }
 
-    // Extract message safely
     const message = (body as { message: string }).message;
 
     // Validate message length
@@ -102,7 +99,7 @@ export async function POST(req: import('next/server').NextRequest) {
       SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
     const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
 
-    // Generate SSML for speech synthesis with sanitized text
+    // Generate SSML with sanitized text
     const sanitizedText = sanitizeHtml(responseText, { allowedTags: [] });
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
@@ -124,31 +121,21 @@ export async function POST(req: import('next/server').NextRequest) {
       });
     };
 
-    // Ensure temp directory exists
-    const tempDir = join(process.cwd(), 'public', 'temp');
-    await mkdir(tempDir, { recursive: true });
-
-    // Synthesize speech and save audio
+    // Synthesize speech and return audio data in memory
     return new Promise((resolve) => {
       synthesizer.speakSsmlAsync(
         ssml,
-        async (result) => {
+        (result) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            const audioFileName = `audio-${Date.now()}.mp3`;
-            const audioPath = join(tempDir, audioFileName);
-            try {
-              await writeFile(audioPath, Buffer.from(result.audioData));
-              synthesizer.close();
-              resolve(NextResponse.json({ audioUrl: `/temp/${audioFileName}`, blendShapes }));
-            } catch (error) {
-              synthesizer.close();
-              resolve(
-                NextResponse.json(
-                  { error: `Failed to save audio: ${(error as Error).message}` },
-                  { status: 500 }
-                )
-              );
-            }
+            // Convert ArrayBuffer to base64
+            const audioBase64 = Buffer.from(result.audioData).toString('base64');
+            synthesizer.close();
+            resolve(
+              NextResponse.json({
+                audio: audioBase64,
+                blendShapes,
+              })
+            );
           } else {
             synthesizer.close();
             resolve(

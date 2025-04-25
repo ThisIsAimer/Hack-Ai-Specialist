@@ -9,15 +9,24 @@ interface BlendShapeFrame extends Array<number> {
   length: 52;
 }
 
+// Helper function to convert base64 to Blob
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+}
+
 function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
   const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
-  // Memoize blend shapes to prevent unnecessary updates
   const memoizedBlendShapes = useMemo(() => blendShapes, [blendShapes]);
 
-  // Initialize idle animation
   useEffect(() => {
     if (animations && animations.length > 0) {
       mixerRef.current = new THREE.AnimationMixer(scene);
@@ -26,9 +35,7 @@ function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
     }
   }, [animations, scene]);
 
-  // Update lip sync and idle animation
   useFrame((state, delta) => {
-    // Lip sync
     if (meshRef.current && memoizedBlendShapes.length > 0) {
       const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
       if (audio && !audio.paused) {
@@ -42,7 +49,6 @@ function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
       }
     }
 
-    // Idle animation (programmatic if no GLB animations)
     if (!animations || animations.length === 0) {
       if (meshRef.current) {
         meshRef.current.rotation.y = Math.sin(state.clock.getElapsedTime()) * 0.3;
@@ -51,7 +57,6 @@ function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
       }
     }
 
-    // Update mixer for GLB animations
     if (mixerRef.current) {
       mixerRef.current.update(delta);
     }
@@ -69,7 +74,6 @@ export default function AvatarPage() {
   const [error, setError] = useState<string | null>(null);
   const recognition = useRef<SpeechRecognition | null>(null);
 
-  // Initialize speech recognition
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -108,7 +112,6 @@ export default function AvatarPage() {
     };
   }, []);
 
-  // Process voice input
   const processVoiceInput = async (text: string) => {
     try {
       setIsLoading(true);
@@ -129,7 +132,10 @@ export default function AvatarPage() {
         throw new Error(data.error);
       }
 
-      setAudioUrl(data.audioUrl);
+      // Convert base64 audio to Blob and create URL
+      const audioBlob = base64ToBlob(data.audio, 'audio/mpeg');
+      const newAudioUrl = URL.createObjectURL(audioBlob);
+      setAudioUrl(newAudioUrl);
       setBlendShapes(data.blendShapes);
     } catch (error) {
       console.error('Error processing voice input:', error);
@@ -144,7 +150,15 @@ export default function AvatarPage() {
     }
   };
 
-  // Start speech recognition
+  // Clean up previous Blob URL when audioUrl changes
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
   const startListening = () => {
     if (recognition.current && !isListening) {
       setIsListening(true);
