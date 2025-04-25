@@ -1,12 +1,15 @@
-"use client";
+'use client';
 
-<<<<<<< HEAD
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-function Avatar({ blendShapes }: { blendShapes: number[][] }) {
+interface BlendShapeFrame extends Array<number> {
+  length: 52;
+}
+
+function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
   const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -60,7 +63,7 @@ function Avatar({ blendShapes }: { blendShapes: number[][] }) {
 export default function AvatarPage() {
   const [transcript, setTranscript] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
-  const [blendShapes, setBlendShapes] = useState<number[][]>([]);
+  const [blendShapes, setBlendShapes] = useState<BlendShapeFrame[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +121,7 @@ export default function AvatarPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`API error: ${response.status} ${errorText}`);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -130,7 +133,12 @@ export default function AvatarPage() {
       setBlendShapes(data.blendShapes);
     } catch (error) {
       console.error('Error processing voice input:', error);
-      setError(`Failed to process your request: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      if (message.includes('API error: 500')) {
+        setError('Server configuration issue. Please contact support.');
+      } else {
+        setError(`Failed to process your request: ${message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -148,61 +156,18 @@ export default function AvatarPage() {
           setError('No speech detected. Please try again.');
         }
       }, 10000);
-=======
-import { useRef, useState, useEffect } from 'react';
-import Script from 'next/script';
-
-interface TalkingHeadInstance {
-  speak: (text: string) => Promise<void>;
-}
-
-export default function AvatarPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [th, setTh] = useState<TalkingHeadInstance | null>(null);
-  const [status, setStatus] = useState<string>('Loading script...');
-  const [error, setError] = useState<string | null>(null);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-
-  // Initialize TalkingHead after script loads
-  useEffect(() => {
-    if (containerRef.current && scriptLoaded && !th) {
-      try {
-        if (!window.TalkingHead) {
-          throw new Error('TalkingHead is not defined on window');
-        }
-        const talkingHead = new window.TalkingHead('/models/doctors/doctor.glb', containerRef.current, {
-          ttsEndpoint: 'https://texttospeech.googleapis.com/v1/text:synthesize',
-          ttsApikey: process.env.NEXT_PUBLIC_GOOGLE_TTS_API_KEY,
-          ttsVoice: 'en-US-Wavenet-F',
-          ttsMarks: true
-        });
-        setTh(talkingHead);
-        setStatus('Avatar loaded');
-      } catch (err) {
-        console.error('TalkingHead initialization failed:', err);
-        setError('Failed to load avatar');
-        setStatus('Error');
-      }
     }
-  }, [scriptLoaded, th]);
+  };
 
-  // Handle voice input
-  const startListening = () => {
-    if (isSpeaking || isListening || !th) {
-      setError(isSpeaking ? 'Please wait until speaking finishes' : !th ? 'Avatar not ready' : null);
-      return;
->>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
-    }
-
-<<<<<<< HEAD
   // Handle audio playback
   useEffect(() => {
     if (audioUrl) {
       const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
       audio.src = audioUrl;
-      audio.play().catch((e) => console.error('Audio playback error:', e));
+      audio.play().catch((e) => {
+        console.error('Audio playback error:', e);
+        setError('Failed to play audio response.');
+      });
     }
   }, [audioUrl]);
 
@@ -222,96 +187,12 @@ export default function AvatarPage() {
           <Avatar blendShapes={blendShapes} />
           <OrbitControls enablePan={false} minDistance={2} maxDistance={5} />
         </Canvas>
-=======
-    setIsListening(true);
-    setStatus('Listening...');
-    setError(null);
-
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = async (event) => {
-      const transcript = event.results[0][0].transcript;
-      setIsListening(false);
-      setStatus('Processing...');
-
-      try {
-        const response = await getResponseFromGroq(transcript);
-        setIsSpeaking(true);
-        setStatus('Speaking...');
-        await th.speak(response);
-        setIsSpeaking(false);
-        setStatus('Ready to talk');
-      } catch (err) {
-        console.error('Speech processing error:', err);
-        setError('Failed to process your request');
-        setIsSpeaking(false);
-        setStatus('Ready to talk');
-      }
-    };
-
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      setError('Could not understand your speech');
-      setIsListening(false);
-      setStatus('Ready to talk');
-    };
-
-    recognition.onend = () => {
-      if (isListening) {
-        setIsListening(false);
-        setStatus('Ready to talk');
-      }
-    };
-
-    recognition.start();
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <Script
-        src="/scripts/talkinghead.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          console.log('TalkingHead script loaded:', window.TalkingHead);
-          // Debug playback-worklet.js
-          fetch('/scripts/playback-worklet.js')
-            .then(() => console.log('playback-worklet.js fetched successfully'))
-            .catch((err) => console.error('Failed to fetch playback-worklet.js:', err));
-          setScriptLoaded(true);
-        }}
-        onError={(err) => {
-          console.error('Failed to load TalkingHead script:', err);
-          setError('Failed to load TalkingHead script');
-          setStatus('Error');
-        }}
-      />
-      <div
-        ref={containerRef}
-        className="w-full max-w-4xl h-[80vh] border-2 border-gray-300 rounded-lg overflow-hidden"
-      />
-      <div className="mt-4 text-center">
-        <button
-          onClick={startListening}
-          disabled={isListening || isSpeaking || !th}
-          className={`px-6 py-2 rounded-full text-white font-semibold ${
-            isListening || isSpeaking || !th
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-500 hover:bg-blue-600'
-          }`}
-        >
-          {isListening ? 'Listening...' : isSpeaking ? 'Speaking...' : 'Talk to Doctor'}
-        </button>
-        <p className="mt-2 text-gray-700">{status}</p>
-        {error && <p className="mt-2 text-red-500">{error}</p>}
->>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
       </div>
       <div className="mt-6 flex space-x-4">
         <button
           onClick={startListening}
           disabled={isListening || isLoading}
+          aria-label={isListening ? 'Listening for speech' : 'Start speaking to avatar'}
           className={`px-6 py-3 rounded-full text-white transition-colors duration-200 ${
             isListening || isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
           }`}
@@ -321,6 +202,7 @@ export default function AvatarPage() {
         {transcript && (
           <button
             onClick={() => setTranscript('')}
+            aria-label="Clear transcript"
             className="px-6 py-3 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors duration-200"
           >
             Clear Transcript
@@ -332,29 +214,4 @@ export default function AvatarPage() {
       <audio id="avatar-audio" className="hidden" />
     </div>
   );
-<<<<<<< HEAD
-=======
-}
-
-// Fetch response from Groq API
-async function getResponseFromGroq(message: string): Promise<string> {
-  const res = await fetch('/api/doctor-chat/doctor-avatar', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`API request failed: ${res.statusText}`);
-  }
-
-  const data = await res.json();
-  if (data.error) {
-    throw new Error(data.error);
-  }
-
-  return data.response;
->>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
 }

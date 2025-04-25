@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-<<<<<<< HEAD
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { cleanEnv, str } from 'envalid';
+import sanitizeHtml from 'sanitize-html';
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY!;
+// Validate environment variables
+const env = cleanEnv(process.env, {
+  GROQ_API_KEY: str(),
+  AZURE_SPEECH_KEY: str(),
+  AZURE_REGION: str(),
+});
+
+// Constants
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY!;
-const AZURE_REGION = process.env.AZURE_REGION!;
 
+// Mapping of viseme IDs to blend shapes for lip-sync animation
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
   0: [],
   1: [{ index: 0, weight: 0.8 }],
@@ -20,8 +27,13 @@ const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] 
   7: [{ index: 0, weight: 0.5 }, { index: 27, weight: 0.4 }],
 };
 
+interface GroqResponse {
+  choices: { message: { content: string } }[];
+}
+
 export async function POST(req: import('next/server').NextRequest) {
   try {
+    // Parse request body safely
     let body: unknown;
     try {
       body = await req.json();
@@ -32,6 +44,7 @@ export async function POST(req: import('next/server').NextRequest) {
       );
     }
 
+    // Validate body is an object with a 'message' string property
     if (
       typeof body !== 'object' ||
       body === null ||
@@ -44,8 +57,10 @@ export async function POST(req: import('next/server').NextRequest) {
       );
     }
 
+    // Extract message safely
     const message = (body as { message: string }).message;
 
+    // Validate message length
     if (message.length > 1000) {
       return NextResponse.json(
         { error: 'Invalid request body: "message" must be a string with max 1000 characters' },
@@ -53,48 +68,21 @@ export async function POST(req: import('next/server').NextRequest) {
       );
     }
 
-    if (!GROQ_API_KEY || !AZURE_SPEECH_KEY || !AZURE_REGION) {
-      return NextResponse.json(
-        { error: 'Server configuration error: Missing API credentials' },
-        { status: 500 }
-      );
-    }
-
+    // Call Groq API for chat completion
     const groqResponse = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
+        model: 'llama3-8b-8192',
         messages: [{ role: 'user', content: message }],
         max_tokens: 500,
-=======
-
-export async function POST(request: Request) {
-  try {
-    const { message } = await request.json();
-    if (!message) {
-      return NextResponse.json({ error: 'No message provided' }, { status: 400 });
-    }
-
-    const groqResponse = await fetch('https://api.groq.com/v1/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        prompt: message,
-        max_tokens: 150,
->>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
       }),
     });
 
     if (!groqResponse.ok) {
-<<<<<<< HEAD
       const errorText = await groqResponse.text();
       return NextResponse.json(
         { error: `Groq API error: ${errorText}` },
@@ -102,29 +90,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const groqData = await groqResponse.json();
+    const groqData = (await groqResponse.json()) as GroqResponse;
     const responseText = groqData.choices?.[0]?.message?.content;
     if (!responseText) {
       return NextResponse.json({ error: 'Invalid response from Groq API' }, { status: 500 });
     }
 
-    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_REGION);
+    // Initialize Azure Speech Synthesizer
+    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(env.AZURE_SPEECH_KEY, env.AZURE_REGION);
     speechConfig.speechSynthesisOutputFormat =
       SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
     const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
 
+    // Generate SSML for speech synthesis with sanitized text
+    const sanitizedText = sanitizeHtml(responseText, { allowedTags: [] });
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
         <voice name="en-US-JennyNeural">
-          ${responseText.replace(/[<>&]/g, '')}
+          ${sanitizedText}
         </voice>
       </speak>
     `;
 
+    // Capture blend shapes for lip-sync
     const blendShapes: number[][] = [];
     synthesizer.visemeReceived = (_s, e) => {
-      const timeMs = e.audioOffset / 10000;
-      const frame = Math.floor(timeMs / (1000 / 60));
+      const timeMs = e.audioOffset / 10000; // Convert 100ns to ms
+      const frame = Math.floor(timeMs / (1000 / 60)); // 60 FPS
       if (!blendShapes[frame]) blendShapes[frame] = new Array(52).fill(0);
       const mappings = visemeToBlendShapes[e.visemeId] || [];
       mappings.forEach(({ index, weight }) => {
@@ -132,13 +124,18 @@ export async function POST(request: Request) {
       });
     };
 
+    // Ensure temp directory exists
+    const tempDir = join(process.cwd(), 'public', 'temp');
+    await mkdir(tempDir, { recursive: true });
+
+    // Synthesize speech and save audio
     return new Promise((resolve) => {
       synthesizer.speakSsmlAsync(
         ssml,
         async (result) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
             const audioFileName = `audio-${Date.now()}.mp3`;
-            const audioPath = join(process.cwd(), 'public', 'temp', audioFileName);
+            const audioPath = join(tempDir, audioFileName);
             try {
               await writeFile(audioPath, Buffer.from(result.audioData));
               synthesizer.close();
@@ -188,22 +185,3 @@ export async function POST(request: Request) {
     );
   }
 }
-=======
-      throw new Error(`Groq API error: ${groqResponse.statusText}`);
-    }
-
-    const data = await groqResponse.json();
-    if (!data.choices || !data.choices[0].text) {
-      throw new Error('Invalid response from Groq API');
-    }
-
-    return NextResponse.json({ response: data.choices[0].text.trim() });
-  } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    );
-  }
-}
->>>>>>> e23e2edba33c3a32b0c8fae5b643fabcd571a0ac
