@@ -25,7 +25,12 @@ function lerpBlendShapes(frameA: number[], frameB: number[], alpha: number): num
   return frameA.map((a, i) => a + (frameB[i] - a) * alpha);
 }
 
-function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; isSpeaking: boolean }) {
+interface AvatarProps {
+  blendShapes: BlendShapeFrame[];
+  isSpeaking: boolean;
+}
+
+const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
   const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -33,7 +38,13 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
   const currentBlendShape = useRef<number[]>(new Array(68).fill(0));
   const transitionToNeutral = useRef(false);
   const transitionAlpha = useRef(0);
-  const FPS = 60; // Match server FPS
+  const FPS = 60;
+  const maxWeight = 0.2; // Reduced to limit stretching
+
+  // Memoize blend shapes to prevent unnecessary recalculations
+  const memoizedBlendShapes = useMemo(() => {
+    return blendShapes.map(frame => [...frame]);
+  }, [blendShapes]);
 
   // Find the Wolf3D_Head mesh with morph targets
   useEffect(() => {
@@ -59,26 +70,23 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
     }
   }, [animations, scene]);
 
-  // Animate blend shapes for lip-sync with smooth transitions and decay
+  // Animate blend shapes for lip-sync with smooth transitions
   useFrame((state, delta) => {
     if (meshRef.current) {
-      // Log for debugging
-      console.log('isSpeaking:', isSpeaking, 'blendShapes length:', blendShapes.length);
+      console.log('isSpeaking:', isSpeaking, 'blendShapes length:', memoizedBlendShapes.length);
 
-      // Lip-sync animation
-      if (isSpeaking && blendShapes.length > 0) {
+      if (isSpeaking && memoizedBlendShapes.length > 0) {
         const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
         if (audio && !audio.paused) {
-          const currentTimeMs = audio.currentTime * 1000; // Audio time in milliseconds
-          const frame = Math.floor(currentTimeMs / (1000 / FPS)); // Match server FPS
-          const frameFraction = (currentTimeMs % (1000 / FPS)) / (1000 / FPS); // Fraction between frames
+          const currentTimeMs = audio.currentTime * 1000;
+          const frame = Math.floor(currentTimeMs / (1000 / FPS));
+          const frameFraction = (currentTimeMs % (1000 / FPS)) / (1000 / FPS);
 
           console.log('Audio currentTime (ms):', currentTimeMs, 'Frame:', frame, 'Fraction:', frameFraction);
 
-          // Check if we're near the end of the audio
-          const duration = audio.duration * 1000; // Duration in ms
+          const duration = audio.duration * 1000;
           const timeRemaining = duration - currentTimeMs;
-          const transitionDuration = 250; // 250ms transition to neutral
+          const transitionDuration = 250;
           if (timeRemaining <= transitionDuration && !transitionToNeutral.current) {
             transitionToNeutral.current = true;
             transitionAlpha.current = 0;
@@ -86,7 +94,6 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
           }
 
           if (transitionToNeutral.current) {
-            // Gradually transition to neutral
             transitionAlpha.current += delta / (transitionDuration / 1000);
             transitionAlpha.current = Math.min(transitionAlpha.current, 1);
             const neutralFrame = new Array(68).fill(0);
@@ -96,28 +103,25 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
               transitionAlpha.current
             );
           } else {
-            // Get current and next frame blend shapes
-            const currentFrameBlendShape = blendShapes[frame] || new Array(68).fill(0);
-            const nextFrameBlendShape = blendShapes[frame + 1] || currentFrameBlendShape;
+            const currentFrameBlendShape = memoizedBlendShapes[frame] || new Array(68).fill(0);
+            const nextFrameBlendShape = memoizedBlendShapes[frame + 1] || currentFrameBlendShape;
 
-            // Update previous and current blend shapes with smoothing and decay
             prevBlendShape.current = [...currentBlendShape.current];
             const targetBlendShape = lerpBlendShapes(currentFrameBlendShape, nextFrameBlendShape, frameFraction);
-            // Apply decay to prevent weights from sticking
-            const decayedBlendShape = targetBlendShape.map(w => 
-              w > 0 ? w : Math.max(prevBlendShape.current[prevBlendShape.current.indexOf(Math.max(...prevBlendShape.current))] - 0.1, 0)
+
+            // Cap weights to prevent stretching
+            const cappedBlendShape = targetBlendShape.map(w => 
+              w > 0 ? Math.min(w, maxWeight) : Math.max(prevBlendShape.current[prevBlendShape.current.indexOf(Math.max(...prevBlendShape.current))] - 0.1, 0)
             );
             currentBlendShape.current = lerpBlendShapes(
               currentBlendShape.current,
-              decayedBlendShape,
-              Math.min(delta * 10, 1) // Smoothing factor
+              cappedBlendShape,
+              Math.min(delta * 5, 1)
             );
           }
 
-          // Apply interpolated blend shapes
           meshRef.current.morphTargetInfluences = currentBlendShape.current;
 
-          // Log active influences for debugging
           const activeInfluences = currentBlendShape.current
             .map((weight, index) => (weight > 0 ? { index, weight } : null))
             .filter(Boolean);
@@ -130,7 +134,6 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
           console.log('Audio paused or not playing, resetting to neutral');
         }
       } else {
-        // Ensure neutral state when not speaking
         meshRef.current.morphTargetInfluences = new Array(68).fill(0);
         prevBlendShape.current = new Array(68).fill(0);
         currentBlendShape.current = new Array(68).fill(0);
@@ -138,7 +141,6 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
         console.log('Not speaking, resetting to neutral');
       }
 
-      // Fallback idle animation if no GLB animations
       if (!animations || animations.length === 0) {
         meshRef.current.rotation.y = Math.sin(state.clock.getElapsedTime()) * 0.3;
         meshRef.current.rotation.x = Math.cos(state.clock.getElapsedTime() * 0.5) * 0.1;
@@ -146,14 +148,13 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
       }
     }
 
-    // Update mixer for GLB animations
     if (mixerRef.current) {
       mixerRef.current.update(delta);
     }
   });
 
   return <primitive object={scene} scale={1.5} position={[0, -1, 0]} />;
-}
+};
 
 export default function AvatarPage() {
   const [transcript, setTranscript] = useState('');
@@ -166,7 +167,6 @@ export default function AvatarPage() {
   const recognition = useRef<SpeechRecognition | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize speech recognition
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -205,7 +205,6 @@ export default function AvatarPage() {
     };
   }, []);
 
-  // Process voice input
   const processVoiceInput = async (text: string) => {
     try {
       setIsLoading(true);
@@ -226,10 +225,8 @@ export default function AvatarPage() {
         throw new Error(data.error);
       }
 
-      // Log blend shapes for debugging
       console.log('Blend shapes received:', data.blendShapes);
 
-      // Convert base64 audio to Blob and create URL
       const audioBlob = base64ToBlob(data.audio, 'audio/mpeg');
       const newAudioUrl = URL.createObjectURL(audioBlob);
       setAudioUrl(newAudioUrl);
@@ -247,27 +244,22 @@ export default function AvatarPage() {
     }
   };
 
-  // Stop audio playback and reset avatar
   const stopSpeaking = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsSpeaking(false);
-      // Reset blend shapes to neutral
       setBlendShapes([]);
     }
   };
 
-  // Stop conversation (stop speaking and clear transcript)
   const stopConversation = () => {
     stopSpeaking();
     setTranscript('');
   };
 
-  // Start speech recognition
   const startListening = () => {
     if (recognition.current && !isListening) {
-      // If avatar is speaking, stop it
       if (isSpeaking) {
         stopSpeaking();
       }
@@ -283,7 +275,6 @@ export default function AvatarPage() {
     }
   };
 
-  // Handle audio playback and track speaking state
   useEffect(() => {
     audioRef.current = document.getElementById('avatar-audio') as HTMLAudioElement;
     if (audioUrl && audioRef.current) {
@@ -297,21 +288,18 @@ export default function AvatarPage() {
         setIsSpeaking(false);
       });
 
-      // Listen for audio end to reset speaking state
       const handleAudioEnd = () => {
         setIsSpeaking(false);
         setBlendShapes([]);
       };
       audioRef.current.addEventListener('ended', handleAudioEnd);
 
-      // Cleanup event listener
       return () => {
         audioRef.current?.removeEventListener('ended', handleAudioEnd);
       };
     }
   }, [audioUrl]);
 
-  // Clean up previous Blob URL when audioUrl changes
   useEffect(() => {
     return () => {
       if (audioUrl) {
