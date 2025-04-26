@@ -250,7 +250,7 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
     }
   });
 
-  return <primitive object={scene} scale={5} position={[0, -7, 0]} />;
+  return <primitive object={scene} scale={7} position={[0, -11, 0]} />;
 }
 
 export default function AvatarPage() {
