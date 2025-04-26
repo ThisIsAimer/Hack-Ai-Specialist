@@ -12,6 +12,7 @@ const env = cleanEnv(process.env, {
 
 // Constants
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const FPS = 60; // Reverted to 60 FPS
 
 // Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
@@ -31,7 +32,6 @@ const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] 
   13: [{ index: 65, weight: 0.6 }], // 's,z' (viseme_SS)
   14: [{ index: 60, weight: 0.6 }], // 'n,l' (viseme_nn)
   15: [{ index: 63, weight: 0.6 }], // 'r' (viseme_RR)
-  // Note: Azure may use more IDs (up to 21); extend if needed
 };
 
 interface GroqResponse {
@@ -120,14 +120,45 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
 
     // Capture blend shapes for lip-sync
     const blendShapes: number[][] = [];
+    let lastFrame = -1;
+    let lastBlendShape: number[] = new Array(68).fill(0); // Default to neutral
+    const decayRate = 0.1; // Decay factor per frame (adjust as needed)
+
     synthesizer.visemeReceived = (_s, e) => {
       const timeMs = e.audioOffset / 10000; // Convert 100ns to ms
-      const frame = Math.floor(timeMs / (1000 / 60)); // 60 FPS
-      if (!blendShapes[frame]) blendShapes[frame] = new Array(68).fill(0); // 52 ARKit + 16 Oculus Visemes
+      const frame = Math.floor(timeMs / (1000 / FPS)); // Frame based on FPS
+      console.log(`Viseme timing - audioOffset: ${e.audioOffset / 10000}ms, frame: ${frame}`);
+
+      // Fill gaps between the last frame and current frame with decayed blend shapes
+      for (let i = lastFrame + 1; i <= frame; i++) {
+        if (!blendShapes[i]) {
+          blendShapes[i] = lastBlendShape.map(w => Math.max(w - decayRate, 0)); // Decay weights
+        }
+      }
+
+      // Update the current frame
+      if (!blendShapes[frame]) {
+        blendShapes[frame] = new Array(68).fill(0); // 52 ARKit + 16 Oculus Visemes
+      }
       const mappings = visemeToBlendShapes[e.visemeId] || [];
-      mappings.forEach(({ index, weight }) => {
-        blendShapes[frame][index] = weight;
-      });
+      if (mappings.length === 0) {
+        console.log(`No mapping for visemeId: ${e.visemeId}, using silence (viseme_sil)`);
+        blendShapes[frame][64] = 1.0; // Default to viseme_sil
+      } else {
+        // Apply new weights and reset others to decayed values
+        const newBlendShape = new Array(68).fill(0);
+        mappings.forEach(({ index, weight }) => {
+          newBlendShape[index] = weight;
+          console.log(`Setting index ${index} to weight ${weight} for visemeId ${e.visemeId}`);
+        });
+        // Blend with decayed previous shape to avoid abrupt jumps
+        blendShapes[frame] = newBlendShape.map((w, i) => 
+          w > 0 ? w : Math.max(lastBlendShape[i] - decayRate, 0)
+        );
+      }
+      lastFrame = frame;
+      lastBlendShape = [...blendShapes[frame]]; // Update the last blend shape
+
       console.log('Viseme received:', {
         visemeId: e.visemeId,
         frame,
@@ -141,14 +172,34 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
         ssml,
         (result) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            // Convert ArrayBuffer to base64
-            const audioBase64 = Buffer.from(result.audioData).toString('base64');
-            console.log('Generated blend shapes:', blendShapes); // Log final blendShapes
+            // Fill remaining frames up to audio duration with decay
+            const audioDurationMs = result.audioDuration / 10000; // Convert to ms
+            const maxFrame = Math.ceil(audioDurationMs / (1000 / FPS));
+            const transitionFrames = FPS / 4; // 250ms transition to neutral
+            for (let i = lastFrame + 1; i <= maxFrame; i++) {
+              if (i >= maxFrame - transitionFrames) {
+                // Transition to neutral in the last 250ms
+                const alpha = (i - (maxFrame - transitionFrames)) / transitionFrames;
+                blendShapes[i] = new Array(68).fill(0);
+                blendShapes[i][64] = 1.0 * (1 - alpha); // Fade out viseme_sil
+              } else {
+                blendShapes[i] = lastBlendShape.map(w => Math.max(w - decayRate, 0)); // Decay
+              }
+            }
+            // Remove undefined entries and ensure contiguous frames
+            const finalBlendShapes = Array.from({ length: maxFrame + 1 }, (_, i) =>
+              blendShapes[i] || new Array(68).fill(0)
+            );
+            // Log the last few frames for debugging
+            const lastFewFrames = finalBlendShapes.slice(-Math.min(10, finalBlendShapes.length));
+            console.log('Last few blend shapes:', lastFewFrames);
+            console.log('Generated blend shapes:', finalBlendShapes);
+            console.log('Audio duration (ms):', audioDurationMs, 'Max frame:', maxFrame);
             synthesizer.close();
             resolve(
               NextResponse.json({
-                audio: audioBase64,
-                blendShapes,
+                audio: Buffer.from(result.audioData).toString('base64'),
+                blendShapes: finalBlendShapes,
               })
             );
           } else {
