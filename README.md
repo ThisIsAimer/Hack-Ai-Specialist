@@ -96,6 +96,8 @@ Problem Statement 1- Weave AI magic with Groq
    - CLOUDINARY_API_KEY=your_api_key
    - CLOUDINARY_API_SECRET=your_api_secret
    - CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+   - AZURE_SPEECH_KEY=your_azure_key
+   - AZURE_REGION=your_region
    - DOCTOR_PROMPT=write_your_syetem_prompt
    - TEACHER_PROMPT=write_your_syetem_prompt
    - ACCOUNTANT_PROMPT=write_your_syetem_prompt
@@ -122,7 +124,7 @@ Problem Statement 1- Weave AI magic with Groq
 ## 🧬  Future Scope
 - Adding more helpful ai agents.
 - Setting up avatar for each agents(like DoctorAI).
-- Improving mesh quality and animations of avatars.
+- Improving animations of avatars.
 
 ## 📎 Resources/ Credits
 - Groq for AI integration.
@@ -130,7 +132,7 @@ Problem Statement 1- Weave AI magic with Groq
 - Cloudinary for image and file processing.
 - Prisma and neondb
 - Blender for meshes and vrm files
-- Tailwind, Threejs, Shadcn, react-slick
+- Tailwind, Threejs, Shadcn, react-slick, azure
 
 # 🏁 Final Words
    - Building this AI agents project was a thrilling journey, blending cutting-edge tech with creative problem-solving. We loved crafting specialized agents like DoctorAI and integrating voice avatars, pushing the boundaries of user interaction. 
