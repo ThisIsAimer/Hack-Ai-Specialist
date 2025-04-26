@@ -126,6 +126,7 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
             .map((weight, index) => (weight > 0 ? { index, weight } : null))
             .filter(Boolean);
           console.log('Applying interpolated blendShapes for frame:', frame, 'Active influences:', activeInfluences);
+          console.log('jawOpen weight applied to mesh:', currentBlendShape.current[25]);
         } else {
           meshRef.current.morphTargetInfluences = new Array(68).fill(0);
           prevBlendShape.current = new Array(68).fill(0);
@@ -153,7 +154,8 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
     }
   });
 
-  return <primitive object={scene} scale={1.5} position={[0, -1, 0]} />;
+  // Adjusted scale and position: scale increased to 2, Z-position moved to -1
+  return <primitive object={scene} scale={8} position={[0, -12, 0]} />;
 };
 
 export default function AvatarPage() {

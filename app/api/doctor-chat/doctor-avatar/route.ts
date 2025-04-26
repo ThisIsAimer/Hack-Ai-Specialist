@@ -14,28 +14,28 @@ const env = cleanEnv(process.env, {
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const FPS = 60;
 
-// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes, now including jawOpen
+// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
   0: [{ index: 64, weight: 1.0 }], // Silence (viseme_sil)
   1: [
     { index: 53, weight: 0.8 }, // 'a' (viseme_aa)
-    { index: 25, weight: 0.6 }, // jawOpen for wide mouth
+    { index: 25, weight: 0.6 }, // jawOpen (increased weight to 0.6 for testing)
   ],
   2: [
     { index: 56, weight: 0.8 }, // 'e' (viseme_E)
-    { index: 25, weight: 0.6 }, // jawOpen for wide mouth
+    { index: 25, weight: 0.6 }, // jawOpen (increased weight to 0.6 for testing)
   ],
   3: [
     { index: 58, weight: 0.8 }, // 'i' (viseme_I)
-    { index: 25, weight: 0.6 }, // jawOpen for slight jaw movement
+    { index: 25, weight: 0.3 }, // jawOpen
   ],
   4: [
     { index: 61, weight: 0.8 }, // 'o' (viseme_O)
-    { index: 25, weight: 0.6 }, // jawOpen for rounded open mouth
+    { index: 25, weight: 0.4 }, // jawOpen
   ],
   5: [
     { index: 67, weight: 0.8 }, // 'u' (viseme_U)
-    { index: 25, weight: 0.6 }, // jawOpen for minimal jaw movement
+    { index: 25, weight: 0.2 }, // jawOpen
   ],
   6: [{ index: 57, weight: 0.7 }], // 'f,v' (viseme_FF)
   7: [
@@ -161,6 +161,8 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
           blendShapes[frame][index] = weight;
           console.log(`Setting index ${index} to weight ${weight} for visemeId ${e.visemeId}`);
         });
+        // Explicitly log jawOpen weight
+        console.log(`jawOpen (index 25) weight for frame ${frame}: ${blendShapes[frame][25]}`);
       }
       lastFrame = frame;
       lastBlendShape = [...blendShapes[frame]];
