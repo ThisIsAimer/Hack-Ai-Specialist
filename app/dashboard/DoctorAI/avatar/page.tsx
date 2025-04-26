@@ -27,27 +27,87 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const prevInfluences = useRef<number[]>(new Array(68).fill(0)); // Track previous frame's influences
   const lastValidFrame = useRef<BlendShapeFrame | null>(null); // Store last valid frame
+  const blinkIndices = useRef<{ left: number; right: number }>({ left: -1, right: -1 }); // Store blink morph target indices
+  const nextBlinkTime = useRef<number>(0); // Time for next blink
+  const teethVisemeIndices = useRef<number[]>([]); // Store viseme-related morph target indices for teeth
 
-  // Find the Wolf3D_Head and Wolf3D_Teeth meshes with morph targets
+  // Find and validate meshes, get morph target indices
   useEffect(() => {
+    let headFound = false;
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh && child.morphTargetInfluences) {
         if (child.name === 'Wolf3D_Head') {
+          headFound = true;
           meshRef.current = child;
-          console.log('Wolf3D_Head morph targets:', child.morphTargetDictionary);
-          console.log('Head morph target influences length:', child.morphTargetInfluences?.length);
+          // Disable frustum culling to prevent erroneous culling
+          child.frustumCulled = false;
+          console.log('Wolf3D_Head found:', {
+            name: child.name,
+            morphTargets: child.morphTargetDictionary,
+            morphTargetCount: child.morphTargetInfluences?.length,
+            material: child.material ? (child.material as THREE.Material).name : 'No material',
+            visible: child.visible,
+            frustumCulled: child.frustumCulled,
+            geometry: child.geometry ? {
+              vertexCount: child.geometry.attributes.position?.count,
+              hasNormals: !!child.geometry.attributes.normal,
+              boundingBox: child.geometry.boundingBox
+            } : 'No geometry'
+          });
+          const dict = child.morphTargetDictionary;
+          if (dict) {
+            blinkIndices.current = {
+              left: dict['eyeBlinkLeft'] !== undefined ? dict['eyeBlinkLeft'] : -1,
+              right: dict['eyeBlinkRight'] !== undefined ? dict['eyeBlinkRight'] : -1,
+            };
+            console.log('Blink indices:', blinkIndices.current);
+          } else {
+            console.warn('No morphTargetDictionary for Wolf3D_Head');
+          }
         } else if (child.name === 'Wolf3D_Teeth') {
           teethMeshRef.current = child;
-          console.log('Wolf3D_Teeth morph targets:', child.morphTargetDictionary);
-          console.log('Teeth morph target influences length:', child.morphTargetInfluences?.length);
+          console.log('Wolf3D_Teeth found:', {
+            name: child.name,
+            morphTargets: child.morphTargetDictionary,
+            morphTargetCount: child.morphTargetInfluences?.length,
+            material: child.material ? (child.material as THREE.Material).name : 'No material',
+            visible: child.visible
+          });
+          const dict = child.morphTargetDictionary;
+          if (dict) {
+            teethVisemeIndices.current = [
+              'viseme_sil', 'viseme_PP', 'viseme_FF', 'viseme_TH', 'viseme_DD', 'viseme_kk', 'viseme_CH',
+              'viseme_SS', 'viseme_nn', 'viseme_RR', 'viseme_aa', 'viseme_E', 'viseme_I', 'viseme_O', 'viseme_U',
+              'mouthLowerDownLeft', 'mouthLowerDownRight', 'mouthLeft', 'mouthRight', 'mouthOpen'
+            ].map((name) => dict[name] !== undefined ? dict[name] : -1).filter((index) => index !== -1);
+            console.log('Teeth viseme indices:', teethVisemeIndices.current);
+            if (teethVisemeIndices.current.length === 0) {
+              console.warn('No viseme or mouth-related morph targets found in Wolf3D_Teeth');
+            }
+          }
         }
       }
     });
-    if (!meshRef.current) {
-      console.warn('Wolf3D_Head mesh with morph targets not found in doctor.glb');
+    if (!headFound) {
+      console.error('Wolf3D_Head mesh with morph targets not found in doctor.glb');
     }
     if (!teethMeshRef.current) {
       console.warn('Wolf3D_Teeth mesh with morph targets not found in doctor.glb');
+    }
+    if (blinkIndices.current.left === -1 || blinkIndices.current.right === -1) {
+      console.warn('eyeBlinkLeft or eyeBlinkRight not found in morphTargetDictionary');
+    }
+    // Ensure head is visible and compute bounding box
+    if (meshRef.current && meshRef.current.geometry) {
+      meshRef.current.visible = true;
+      meshRef.current.geometry.computeBoundingBox();
+      console.log('Initial head bounding box:', meshRef.current.geometry.boundingBox);
+      if (!meshRef.current.geometry || !meshRef.current.material) {
+        console.error('Wolf3D_Head missing geometry or material:', {
+          geometry: !!meshRef.current.geometry,
+          material: !!meshRef.current.material
+        });
+      }
     }
   }, [scene]);
 
@@ -60,13 +120,24 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
     }
   }, [animations, scene]);
 
-  // Animate blend shapes for lip-sync and handle idle animation
+  // Animate blend shapes for lip-sync, blinking, and handle idle animation
   useFrame((state, delta) => {
-    if (meshRef.current) {
-      // Log for debugging
-      console.log('isSpeaking:', isSpeaking, 'blendShapes length:', blendShapes.length);
+    if (meshRef.current && meshRef.current.morphTargetInfluences && meshRef.current.geometry) {
+      // Ensure head is visible and check bounding box
+      if (!meshRef.current.visible) {
+        console.warn('Wolf3D_Head not visible, attempting to restore');
+        meshRef.current.visible = true;
+        meshRef.current.morphTargetInfluences = new Array(68).fill(0); // Reset influences
+      }
 
-      // Lip-sync animation
+      // Log camera position and bounding box for debugging
+      const cameraPos = state.camera.position;
+      const boundingBox = meshRef.current.geometry.boundingBox;
+      console.log('Camera position:', cameraPos.toArray(), 'Head bounding box:', boundingBox);
+
+      let finalInfluences: number[];
+
+      // Lip-sync animation when speaking
       if (isSpeaking && blendShapes.length > 0) {
         const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
         if (audio && !audio.paused) {
@@ -86,63 +157,83 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
             console.log('No blendShapes for frame:', frame, 'Using neutral');
           }
 
-          // Adjust weights for more realistic movement
+          // Adjust weights for more realistic movement and clamp to prevent extreme deformations
           const adjustedInfluences = targetInfluences.map((weight, index) => {
-            // Example ARKit/Oculus viseme indices (adjust based on your morphTargetDictionary)
             // Visemes (0-15): sil, pp, ff, th, dd, kk, ch, ss, nn, rr, aa, e, ih, oh, ou
             if (index >= 0 && index <= 15) {
-              // Scale down visemes to avoid over-exaggeration (e.g., mouthOpen, jawForward)
-              return Math.min(weight * 0.7, 1); // Reduce by 30%
+              return Math.min(Math.max(weight * 0.7, 0), 1); // Reduce by 30%, clamp 0-1
             }
             // Boost lower lip movements (e.g., mouthLowerDown)
-            if (index === 16 || index === 17) { // Assume mouthLowerDownLeft/Right
-              return Math.min(weight * 1.2, 1); // Increase by 20%
+            if (index === 16 || index === 17) {
+              return Math.min(Math.max(weight * 1.2, 0), 1); // Increase by 20%, clamp 0-1
             }
             // Reduce lateral twitching (e.g., mouthLeft, mouthRight)
-            if (index === 18 || index === 19) { // Assume mouthLeft/Right
-              return Math.min(weight * 0.5, 1); // Reduce by 50%
+            if (index === 18 || index === 19) {
+              return Math.min(Math.max(weight * 0.5, 0), 1); // Reduce by 50%, clamp 0-1
             }
-            return weight; // Keep other weights unchanged
+            return Math.min(Math.max(weight, 0), 1); // Clamp all weights 0-1
           }) as BlendShapeFrame;
 
           // Interpolate for smooth transitions
           const lerpFactor = Math.min(delta * 10, 1); // Adjust speed (10 = fast, lower = slower)
-          const newInfluences = prevInfluences.current.map((prev, i) =>
+          finalInfluences = prevInfluences.current.map((prev, i) =>
             THREE.MathUtils.lerp(prev, adjustedInfluences[i], lerpFactor)
           );
-          prevInfluences.current = newInfluences;
-
-          // Apply smoothed influences to head
-          meshRef.current.morphTargetInfluences = newInfluences;
-          // Apply same to teeth if available
-          if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-            teethMeshRef.current.morphTargetInfluences = newInfluences;
-          }
+          prevInfluences.current = finalInfluences;
 
           // Log non-zero influences for debugging
-          const activeInfluences = newInfluences
+          const activeInfluences = finalInfluences
             .map((weight, index) => (weight > 0.01 ? { index, weight } : null))
             .filter(Boolean);
           console.log('Applying smoothed blendShapes for frame:', frame, 'Active influences:', activeInfluences);
         } else {
           // Reset to neutral if audio is paused
-          const neutral = new Array(68).fill(0);
-          meshRef.current.morphTargetInfluences = neutral;
-          if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-            teethMeshRef.current.morphTargetInfluences = neutral;
-          }
-          prevInfluences.current = neutral;
+          finalInfluences = new Array(68).fill(0);
+          prevInfluences.current = finalInfluences;
           console.log('Audio paused or not playing, resetting to neutral');
         }
       } else {
-        // Ensure neutral state when not speaking
-        const neutral = new Array(68).fill(0);
-        meshRef.current.morphTargetInfluences = neutral;
-        if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-          teethMeshRef.current.morphTargetInfluences = neutral;
+        // Idle animation: blinking
+        finalInfluences = new Array(68).fill(0);
+        const time = state.clock.getElapsedTime();
+
+        // Randomized blinking
+        if (time >= nextBlinkTime.current && blinkIndices.current.left !== -1 && blinkIndices.current.right !== -1) {
+          const blinkDuration = 0.2; // Duration of each blink
+          const blinkProgress = (time - nextBlinkTime.current) / blinkDuration;
+          if (blinkProgress < 1) {
+            const blinkWeight = Math.sin(blinkProgress * Math.PI); // Smooth blink curve
+            finalInfluences[blinkIndices.current.left] = blinkWeight * 0.8; // Subtle blink
+            finalInfluences[blinkIndices.current.right] = blinkWeight * 0.8;
+            console.log('Blinking, weight:', blinkWeight, 'Indices:', blinkIndices.current);
+          } else {
+            // Schedule next blink (3-6 seconds)
+            nextBlinkTime.current = time + 3 + Math.random() * 3;
+            console.log('Next blink scheduled at:', nextBlinkTime.current);
+          }
         }
-        prevInfluences.current = neutral;
-        console.log('Not speaking, resetting to neutral');
+
+        console.log('Not speaking, applying idle animation');
+      }
+
+      // Apply final influences to head
+      if (meshRef.current.morphTargetInfluences) {
+        meshRef.current.morphTargetInfluences = finalInfluences;
+        // Recompute bounding box after applying morph influences
+        meshRef.current.geometry.computeBoundingBox();
+      }
+
+      // Apply relevant influences to teeth
+      if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
+        const teethInfluences = new Array(teethMeshRef.current.morphTargetInfluences.length).fill(0);
+        // Map head viseme/mouth influences (indices 0-19) to teeth morph targets
+        teethVisemeIndices.current.forEach((teethIndex, i) => {
+          if (teethIndex !== -1 && i < 20) {
+            teethInfluences[teethIndex] = finalInfluences[i];
+          }
+        });
+        teethMeshRef.current.morphTargetInfluences = teethInfluences;
+        console.log('Applied teeth influences:', teethInfluences.filter((w) => w > 0.01));
       }
 
       // Fallback idle animation if no GLB animations
