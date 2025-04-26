@@ -8,36 +8,21 @@ const env = cleanEnv(process.env, {
   GROQ_API_KEY: str(),
   AZURE_SPEECH_KEY: str(),
   AZURE_REGION: str(),
-  DOCTOR_AVATAR: str(), // Add DOCTOR_AVATAR_PROMPT to env validation
+  DOCTOR_AVATAR: str(),
 });
 
 // Constants
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const FPS = 60;
 
-// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes
+// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes (jawOpen removed)
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
   0: [{ index: 64, weight: 1.0 }], // Silence (viseme_sil)
-  1: [
-    { index: 53, weight: 0.8 }, // 'a' (viseme_aa)
-    { index: 25, weight: 0.6 }, // jawOpen
-  ],
-  2: [
-    { index: 56, weight: 0.8 }, // 'e' (viseme_E)
-    { index: 25, weight: 0.6 }, // jawOpen
-  ],
-  3: [
-    { index: 58, weight: 0.8 }, // 'i' (viseme_I)
-    { index: 25, weight: 0.3 }, // jawOpen
-  ],
-  4: [
-    { index: 61, weight: 0.8 }, // 'o' (viseme_O)
-    { index: 25, weight: 0.4 }, // jawOpen
-  ],
-  5: [
-    { index: 67, weight: 0.8 }, // 'u' (viseme_U)
-    { index: 25, weight: 0.2 }, // jawOpen
-  ],
+  1: [{ index: 53, weight: 0.8 }], // 'a' (viseme_aa)
+  2: [{ index: 56, weight: 0.8 }], // 'e' (viseme_E)
+  3: [{ index: 58, weight: 0.8 }], // 'i' (viseme_I)
+  4: [{ index: 61, weight: 0.8 }], // 'o' (viseme_O)
+  5: [{ index: 67, weight: 0.8 }], // 'u' (viseme_U)
   6: [{ index: 57, weight: 0.7 }], // 'f,v' (viseme_FF)
   7: [
     { index: 65, weight: 0.6 }, // 's,t' (viseme_SS)
@@ -99,7 +84,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       body: JSON.stringify({
         model: 'llama3-8b-8192',
         messages: [
-          { role: 'system', content: env.DOCTOR_AVATAR }, // Use the prompt from .env
+          { role: 'system', content: env.DOCTOR_AVATAR },
           { role: 'user', content: message }
         ],
         max_tokens: 500,
@@ -165,8 +150,6 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
           blendShapes[frame][index] = weight;
           console.log(`Setting index ${index} to weight ${weight} for visemeId ${e.visemeId}`);
         });
-        // Explicitly log jawOpen weight
-        console.log(`jawOpen (index 25) weight for frame ${frame}: ${blendShapes[frame][25]}`);
       }
       lastFrame = frame;
       lastBlendShape = [...blendShapes[frame]];

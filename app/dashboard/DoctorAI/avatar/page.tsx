@@ -82,7 +82,8 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
           const frame = Math.floor(currentTimeMs / (1000 / FPS));
           const frameFraction = (currentTimeMs % (1000 / FPS)) / (1000 / FPS);
 
-          console.log('Audio currentTime (ms):', currentTimeMs, 'Frame:', frame, 'Fraction:', frameFraction);
+          // Log timing to check for desync
+          console.log('Sync Check - Audio currentTime (ms):', currentTimeMs, 'Frame:', frame, 'Frame Fraction:', frameFraction);
 
           const duration = audio.duration * 1000;
           const timeRemaining = duration - currentTimeMs;
@@ -126,7 +127,6 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
             .map((weight, index) => (weight > 0 ? { index, weight } : null))
             .filter(Boolean);
           console.log('Applying interpolated blendShapes for frame:', frame, 'Active influences:', activeInfluences);
-          console.log('jawOpen weight applied to mesh:', currentBlendShape.current[25]);
         } else {
           meshRef.current.morphTargetInfluences = new Array(68).fill(0);
           prevBlendShape.current = new Array(68).fill(0);
@@ -154,8 +154,7 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
     }
   });
 
-  // Adjusted scale and position: scale increased to 2, Z-position moved to -1
-  return <primitive object={scene} scale={8} position={[0, -12, 0]} />;
+  return <primitive object={scene} scale={9} position={[0, -14, 0]} />;
 };
 
 export default function AvatarPage() {
@@ -214,7 +213,9 @@ export default function AvatarPage() {
       const response = await fetch('/api/doctor-chat/doctor-avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+        }),
       });
 
       if (!response.ok) {
@@ -283,6 +284,7 @@ export default function AvatarPage() {
       audioRef.current.src = audioUrl;
       audioRef.current.play().then(() => {
         setIsSpeaking(true);
+        console.log('Audio started playing at:', performance.now());
         console.log('Audio duration:', audioRef.current?.duration);
       }).catch((e) => {
         console.error('Audio playback error:', e);
@@ -324,7 +326,7 @@ export default function AvatarPage() {
           <directionalLight position={[5, 5, 5]} intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
           <Avatar blendShapes={blendShapes} isSpeaking={isSpeaking} />
-          <OrbitControls enablePan={false} minDistance={2} maxDistance={5} />
+          <OrbitControls enablePan={false} minDistance={2} maxDistance={50} />
         </Canvas>
       </div>
       <div className="mt-6 flex space-x-4">
