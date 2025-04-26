@@ -8,6 +8,7 @@ const env = cleanEnv(process.env, {
   GROQ_API_KEY: str(),
   AZURE_SPEECH_KEY: str(),
   AZURE_REGION: str(),
+  DOCTOR_AVATAR: str(), // Add DOCTOR_AVATAR_PROMPT to env validation
 });
 
 // Constants
@@ -19,11 +20,11 @@ const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] 
   0: [{ index: 64, weight: 1.0 }], // Silence (viseme_sil)
   1: [
     { index: 53, weight: 0.8 }, // 'a' (viseme_aa)
-    { index: 25, weight: 0.6 }, // jawOpen (increased weight to 0.6 for testing)
+    { index: 25, weight: 0.6 }, // jawOpen
   ],
   2: [
     { index: 56, weight: 0.8 }, // 'e' (viseme_E)
-    { index: 25, weight: 0.6 }, // jawOpen (increased weight to 0.6 for testing)
+    { index: 25, weight: 0.6 }, // jawOpen
   ],
   3: [
     { index: 58, weight: 0.8 }, // 'i' (viseme_I)
@@ -80,7 +81,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       );
     }
 
-    const message = (body as { message: string }).message;
+    const { message } = body as { message: string };
 
     if (message.length > 1000) {
       return NextResponse.json(
@@ -97,7 +98,10 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       },
       body: JSON.stringify({
         model: 'llama3-8b-8192',
-        messages: [{ role: 'user', content: message }],
+        messages: [
+          { role: 'system', content: env.DOCTOR_AVATAR }, // Use the prompt from .env
+          { role: 'user', content: message }
+        ],
         max_tokens: 500,
       }),
     });
