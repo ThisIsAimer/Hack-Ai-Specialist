@@ -4,7 +4,7 @@ export default withAuth(
   async function middleware() {},
   {
     // Allow public access to the root path and /api/test-azure
-    publicPaths: ["/", "/api/test-azure"],
+    publicPaths: ["/"],
   }
 );
 
