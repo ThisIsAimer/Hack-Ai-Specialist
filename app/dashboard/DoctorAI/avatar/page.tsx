@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect} from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface BlendShapeFrame extends Array<number> {
-  length: 52;
+  length: 68; // 52 ARKit + 16 Oculus Visemes
 }
 
 // Helper function to convert base64 to Blob
@@ -20,13 +20,27 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([byteArray], { type: mimeType });
 }
 
-function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
+function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; isSpeaking: boolean }) {
   const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
-  const memoizedBlendShapes = useMemo(() => blendShapes, [blendShapes]);
+  // Find the Wolf3D_Head mesh with morph targets
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.name === 'Wolf3D_Head' && child.morphTargetInfluences) {
+        meshRef.current = child;
+      }
+    });
+    if (meshRef.current) {
+      console.log('Wolf3D_Head morph targets:', meshRef.current.morphTargetDictionary);
+      console.log('Morph target influences length:', meshRef.current.morphTargetInfluences?.length);
+    } else {
+      console.warn('Wolf3D_Head mesh with morph targets not found in doctor.glb');
+    }
+  }, [scene]);
 
+  // Initialize idle animation if available
   useEffect(() => {
     if (animations && animations.length > 0) {
       mixerRef.current = new THREE.AnimationMixer(scene);
@@ -35,34 +49,55 @@ function Avatar({ blendShapes }: { blendShapes: BlendShapeFrame[] }) {
     }
   }, [animations, scene]);
 
+  // Animate blend shapes for lip-sync and handle idle animation
   useFrame((state, delta) => {
-    if (meshRef.current && memoizedBlendShapes.length > 0) {
-      const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
-      if (audio && !audio.paused) {
-        const currentTimeMs = audio.currentTime * 1000;
-        const frame = Math.floor(currentTimeMs / (1000 / 60));
-        if (memoizedBlendShapes[frame]) {
-          meshRef.current.morphTargetInfluences = memoizedBlendShapes[frame];
-        } else {
-          meshRef.current.morphTargetInfluences = new Array(52).fill(0);
-        }
-      }
-    }
+    if (meshRef.current) {
+      // Log for debugging
+      console.log('isSpeaking:', isSpeaking, 'blendShapes length:', blendShapes.length);
 
-    if (!animations || animations.length === 0) {
-      if (meshRef.current) {
+      // Lip-sync animation
+      if (isSpeaking && blendShapes.length > 0) {
+        const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
+        if (audio && !audio.paused) {
+          const currentTimeMs = audio.currentTime * 1000; // Audio time in milliseconds
+          const frame = Math.floor(currentTimeMs / (1000 / 60)); // 60 FPS
+          console.log('Audio currentTime (ms):', currentTimeMs, 'Frame:', frame);
+          if (blendShapes[frame]) {
+            meshRef.current.morphTargetInfluences = blendShapes[frame];
+            // Log non-zero influences for debugging
+            const activeInfluences = blendShapes[frame]
+              .map((weight, index) => (weight > 0 ? { index, weight } : null))
+              .filter(Boolean);
+            console.log('Applying blendShapes for frame:', frame, 'Active influences:', activeInfluences);
+          } else {
+            meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+            console.log('No blendShapes for frame:', frame, 'Resetting to neutral');
+          }
+        } else {
+          meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+          console.log('Audio paused or not playing, resetting to neutral');
+        }
+      } else {
+        // Ensure neutral state when not speaking
+        meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+        console.log('Not speaking, resetting to neutral');
+      }
+
+      // Fallback idle animation if no GLB animations
+      if (!animations || animations.length === 0) {
         meshRef.current.rotation.y = Math.sin(state.clock.getElapsedTime()) * 0.3;
         meshRef.current.rotation.x = Math.cos(state.clock.getElapsedTime() * 0.5) * 0.1;
         meshRef.current.position.y = -1 + Math.sin(state.clock.getElapsedTime()) * 0.03;
       }
     }
 
+    // Update mixer for GLB animations
     if (mixerRef.current) {
       mixerRef.current.update(delta);
     }
   });
 
-  return <primitive ref={meshRef} object={scene} scale={1.5} position={[0, -1, 0]} />;
+  return <primitive object={scene} scale={1.5} position={[0, -1, 0]} />;
 }
 
 export default function AvatarPage() {
@@ -136,6 +171,9 @@ export default function AvatarPage() {
         throw new Error(data.error);
       }
 
+      // Log blend shapes for debugging
+      console.log('Blend shapes received:', data.blendShapes);
+
       // Convert base64 audio to Blob and create URL
       const audioBlob = base64ToBlob(data.audio, 'audio/mpeg');
       const newAudioUrl = URL.createObjectURL(audioBlob);
@@ -197,6 +235,7 @@ export default function AvatarPage() {
       audioRef.current.src = audioUrl;
       audioRef.current.play().then(() => {
         setIsSpeaking(true);
+        console.log('Audio duration:', audioRef.current?.duration);
       }).catch((e) => {
         console.error('Audio playback error:', e);
         setError('Failed to play audio response.');
@@ -239,7 +278,7 @@ export default function AvatarPage() {
           <ambientLight intensity={0.3} />
           <directionalLight position={[5, 5, 5]} intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
-          <Avatar blendShapes={blendShapes} />
+          <Avatar blendShapes={blendShapes} isSpeaking={isSpeaking} />
           <OrbitControls enablePan={false} minDistance={2} maxDistance={5} />
         </Canvas>
       </div>

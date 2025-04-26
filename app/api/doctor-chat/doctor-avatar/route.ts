@@ -13,16 +13,25 @@ const env = cleanEnv(process.env, {
 // Constants
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Mapping of viseme IDs to blend shapes for lip-sync animation
+// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
-  0: [],
-  1: [{ index: 0, weight: 0.8 }],
-  2: [{ index: 0, weight: 0.5 }, { index: 16, weight: 0.4 }],
-  3: [{ index: 19, weight: 0.6 }, { index: 0, weight: 0.3 }],
-  4: [{ index: 0, weight: 0.6 }, { index: 26, weight: 0.7 }],
-  5: [{ index: 26, weight: 0.9 }, { index: 21, weight: 0.5 }],
-  6: [{ index: 21, weight: 0.6 }, { index: 0, weight: 0.4 }],
-  7: [{ index: 0, weight: 0.5 }, { index: 27, weight: 0.4 }],
+  0: [{ index: 64, weight: 1.0 }], // Silence (viseme_sil)
+  1: [{ index: 53, weight: 0.8 }], // 'a' (viseme_aa)
+  2: [{ index: 56, weight: 0.8 }], // 'e' (viseme_E)
+  3: [{ index: 58, weight: 0.8 }], // 'i' (viseme_I)
+  4: [{ index: 61, weight: 0.8 }], // 'o' (viseme_O)
+  5: [{ index: 67, weight: 0.8 }], // 'u' (viseme_U)
+  6: [{ index: 57, weight: 0.7 }], // 'f,v' (viseme_FF)
+  7: [{ index: 65, weight: 0.6 }, { index: 55, weight: 0.4 }], // 's,t' (viseme_SS, viseme_DD)
+  8: [{ index: 62, weight: 0.7 }], // 'p,b,m' (viseme_pp)
+  9: [{ index: 66, weight: 0.6 }], // 'θ,ð' (viseme_TH)
+  10: [{ index: 55, weight: 0.6 }], // 'd,t' (viseme_DD)
+  11: [{ index: 59, weight: 0.6 }], // 'k,g' (viseme_kk)
+  12: [{ index: 54, weight: 0.6 }], // 'tʃ,dʒ,ʃ' (viseme_CH)
+  13: [{ index: 65, weight: 0.6 }], // 's,z' (viseme_SS)
+  14: [{ index: 60, weight: 0.6 }], // 'n,l' (viseme_nn)
+  15: [{ index: 63, weight: 0.6 }], // 'r' (viseme_RR)
+  // Note: Azure may use more IDs (up to 21); extend if needed
 };
 
 interface GroqResponse {
@@ -114,10 +123,15 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
     synthesizer.visemeReceived = (_s, e) => {
       const timeMs = e.audioOffset / 10000; // Convert 100ns to ms
       const frame = Math.floor(timeMs / (1000 / 60)); // 60 FPS
-      if (!blendShapes[frame]) blendShapes[frame] = new Array(52).fill(0);
+      if (!blendShapes[frame]) blendShapes[frame] = new Array(68).fill(0); // 52 ARKit + 16 Oculus Visemes
       const mappings = visemeToBlendShapes[e.visemeId] || [];
       mappings.forEach(({ index, weight }) => {
         blendShapes[frame][index] = weight;
+      });
+      console.log('Viseme received:', {
+        visemeId: e.visemeId,
+        frame,
+        blendShapes: blendShapes[frame],
       });
     };
 
@@ -129,6 +143,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
             // Convert ArrayBuffer to base64
             const audioBase64 = Buffer.from(result.audioData).toString('base64');
+            console.log('Generated blend shapes:', blendShapes); // Log final blendShapes
             synthesizer.close();
             resolve(
               NextResponse.json({
