@@ -71,9 +71,12 @@ export default function AvatarPage() {
   const [blendShapes, setBlendShapes] = useState<BlendShapeFrame[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognition = useRef<SpeechRecognition | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Initialize speech recognition
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -112,6 +115,7 @@ export default function AvatarPage() {
     };
   }, []);
 
+  // Process voice input
   const processVoiceInput = async (text: string) => {
     try {
       setIsLoading(true);
@@ -150,17 +154,30 @@ export default function AvatarPage() {
     }
   };
 
-  // Clean up previous Blob URL when audioUrl changes
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
+  // Stop audio playback and reset avatar
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsSpeaking(false);
+      // Reset blend shapes to neutral
+      setBlendShapes([]);
+    }
+  };
 
+  // Stop conversation (stop speaking and clear transcript)
+  const stopConversation = () => {
+    stopSpeaking();
+    setTranscript('');
+  };
+
+  // Start speech recognition
   const startListening = () => {
     if (recognition.current && !isListening) {
+      // If avatar is speaking, stop it
+      if (isSpeaking) {
+        stopSpeaking();
+      }
       setIsListening(true);
       setError(null);
       recognition.current.start();
@@ -173,16 +190,40 @@ export default function AvatarPage() {
     }
   };
 
-  // Handle audio playback
+  // Handle audio playback and track speaking state
   useEffect(() => {
-    if (audioUrl) {
-      const audio = document.getElementById('avatar-audio') as HTMLAudioElement;
-      audio.src = audioUrl;
-      audio.play().catch((e) => {
+    audioRef.current = document.getElementById('avatar-audio') as HTMLAudioElement;
+    if (audioUrl && audioRef.current) {
+      audioRef.current.src = audioUrl;
+      audioRef.current.play().then(() => {
+        setIsSpeaking(true);
+      }).catch((e) => {
         console.error('Audio playback error:', e);
         setError('Failed to play audio response.');
+        setIsSpeaking(false);
       });
+
+      // Listen for audio end to reset speaking state
+      const handleAudioEnd = () => {
+        setIsSpeaking(false);
+        setBlendShapes([]);
+      };
+      audioRef.current.addEventListener('ended', handleAudioEnd);
+
+      // Cleanup event listener
+      return () => {
+        audioRef.current?.removeEventListener('ended', handleAudioEnd);
+      };
     }
+  }, [audioUrl]);
+
+  // Clean up previous Blob URL when audioUrl changes
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
   }, [audioUrl]);
 
   return (
@@ -213,13 +254,13 @@ export default function AvatarPage() {
         >
           {isListening ? 'Listening...' : 'Speak to Avatar'}
         </button>
-        {transcript && (
+        {(transcript || isSpeaking) && (
           <button
-            onClick={() => setTranscript('')}
-            aria-label="Clear transcript"
+            onClick={stopConversation}
+            aria-label="Stop conversation and clear transcript"
             className="px-6 py-3 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors duration-200"
           >
-            Clear Transcript
+            Stop Convo
           </button>
         )}
       </div>

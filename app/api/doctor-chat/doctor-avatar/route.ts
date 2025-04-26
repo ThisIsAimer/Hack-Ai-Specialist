@@ -29,13 +29,13 @@ interface GroqResponse {
   choices: { message: { content: string } }[];
 }
 
-export async function POST(req: import('next/server').NextRequest) {
+export async function POST(req: import('next/server').NextRequest): Promise<Response> {
   try {
     // Parse request body safely
     let body: unknown;
     try {
       body = await req.json();
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -122,7 +122,7 @@ export async function POST(req: import('next/server').NextRequest) {
     };
 
     // Synthesize speech and return audio data in memory
-    return new Promise((resolve) => {
+    return new Promise<Response>((resolve) => {
       synthesizer.speakSsmlAsync(
         ssml,
         (result) => {

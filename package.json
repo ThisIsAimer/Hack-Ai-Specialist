@@ -19,6 +19,7 @@
     "@react-three/fiber": "^9.1.2",
     "@types/dom-speech-recognition": "^0.0.6",
     "@types/sanitize-html": "^2.15.0",
+    "@types/webrtc": "^0.0.46",
     "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.6.0",
