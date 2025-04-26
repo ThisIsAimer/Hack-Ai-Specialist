@@ -32,7 +32,8 @@ interface AvatarProps {
 
 const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
   const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
-  const meshRef = useRef<THREE.Mesh>(null);
+  const headRef = useRef<THREE.Mesh>(null);
+  const teethRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const prevBlendShape = useRef<number[]>(new Array(68).fill(0));
   const currentBlendShape = useRef<number[]>(new Array(68).fill(0));
@@ -46,18 +47,29 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
     return blendShapes.map(frame => [...frame]);
   }, [blendShapes]);
 
-  // Find the Wolf3D_Head mesh with morph targets
+  // Find both Wolf3D_Head and Wolf3D_Teeth meshes with morph targets
   useEffect(() => {
     scene.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.name === 'Wolf3D_Head' && child.morphTargetInfluences) {
-        meshRef.current = child;
+      if (child instanceof THREE.Mesh) {
+        if (child.name === 'Wolf3D_Head' && child.morphTargetInfluences) {
+          headRef.current = child;
+        }
+        if (child.name === 'Wolf3D_Teeth' && child.morphTargetInfluences) {
+          teethRef.current = child;
+        }
       }
     });
-    if (meshRef.current) {
-      console.log('Wolf3D_Head morph targets:', meshRef.current.morphTargetDictionary);
-      console.log('Morph target influences length:', meshRef.current.morphTargetInfluences?.length);
+    if (headRef.current) {
+      console.log('Wolf3D_Head morph targets:', headRef.current.morphTargetDictionary);
+      console.log('Head morph target influences length:', headRef.current.morphTargetInfluences?.length);
     } else {
       console.warn('Wolf3D_Head mesh with morph targets not found in doctor.glb');
+    }
+    if (teethRef.current) {
+      console.log('Wolf3D_Teeth morph targets:', teethRef.current.morphTargetDictionary);
+      console.log('Teeth morph target influences length:', teethRef.current.morphTargetInfluences?.length);
+    } else {
+      console.warn('Wolf3D_Teeth mesh with morph targets not found in doctor.glb');
     }
   }, [scene]);
 
@@ -72,7 +84,7 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
 
   // Animate blend shapes for lip-sync with smooth transitions
   useFrame((state, delta) => {
-    if (meshRef.current) {
+    if (headRef.current || teethRef.current) {
       console.log('isSpeaking:', isSpeaking, 'blendShapes length:', memoizedBlendShapes.length);
 
       if (isSpeaking && memoizedBlendShapes.length > 0) {
@@ -121,21 +133,25 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
             );
           }
 
-          meshRef.current.morphTargetInfluences = currentBlendShape.current;
+          // Apply blend shapes to both head and teeth
+          if (headRef.current) headRef.current.morphTargetInfluences = currentBlendShape.current;
+          if (teethRef.current) teethRef.current.morphTargetInfluences = currentBlendShape.current;
 
           const activeInfluences = currentBlendShape.current
             .map((weight, index) => (weight > 0 ? { index, weight } : null))
             .filter(Boolean);
           console.log('Applying interpolated blendShapes for frame:', frame, 'Active influences:', activeInfluences);
         } else {
-          meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+          if (headRef.current) headRef.current.morphTargetInfluences = new Array(68).fill(0);
+          if (teethRef.current) teethRef.current.morphTargetInfluences = new Array(68).fill(0);
           prevBlendShape.current = new Array(68).fill(0);
           currentBlendShape.current = new Array(68).fill(0);
           transitionToNeutral.current = false;
           console.log('Audio paused or not playing, resetting to neutral');
         }
       } else {
-        meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+        if (headRef.current) headRef.current.morphTargetInfluences = new Array(68).fill(0);
+        if (teethRef.current) teethRef.current.morphTargetInfluences = new Array(68).fill(0);
         prevBlendShape.current = new Array(68).fill(0);
         currentBlendShape.current = new Array(68).fill(0);
         transitionToNeutral.current = false;
@@ -143,9 +159,11 @@ const Avatar = ({ blendShapes, isSpeaking }: AvatarProps) => {
       }
 
       if (!animations || animations.length === 0) {
-        meshRef.current.rotation.y = Math.sin(state.clock.getElapsedTime()) * 0.3;
-        meshRef.current.rotation.x = Math.cos(state.clock.getElapsedTime() * 0.5) * 0.1;
-        meshRef.current.position.y = -1 + Math.sin(state.clock.getElapsedTime()) * 0.03;
+        if (headRef.current) {
+          headRef.current.rotation.y = Math.sin(state.clock.getElapsedTime()) * 0.3;
+          headRef.current.rotation.x = Math.cos(state.clock.getElapsedTime() * 0.5) * 0.1;
+          headRef.current.position.y = -1 + Math.sin(state.clock.getElapsedTime()) * 0.03;
+        }
       }
     }
 
