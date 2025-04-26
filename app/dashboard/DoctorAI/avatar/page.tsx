@@ -159,7 +159,7 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
     }
   });
 
-  return <primitive object={scene} scale={8} position={[0, -12, 0]} />;
+  return <primitive object={scene} scale={5} position={[0, -7, 0]} />;
 }
 
 export default function AvatarPage() {
@@ -341,7 +341,7 @@ export default function AvatarPage() {
           <directionalLight position={[5, 5, 5]} intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
           <Avatar blendShapes={blendShapes} isSpeaking={isSpeaking} />
-          <OrbitControls enablePan={false} minDistance={2} maxDistance={5} />
+          <OrbitControls enablePan={false} minDistance={1} maxDistance={4} />
         </Canvas>
       </div>
       <div className="mt-6 flex space-x-4">
