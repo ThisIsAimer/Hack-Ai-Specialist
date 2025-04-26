@@ -25,6 +25,8 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
   const meshRef = useRef<THREE.Mesh>(null);
   const teethMeshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const prevInfluences = useRef<number[]>(new Array(68).fill(0)); // Track previous frame's influences
+  const lastValidFrame = useRef<BlendShapeFrame | null>(null); // Store last valid frame
 
   // Find the Wolf3D_Head and Wolf3D_Teeth meshes with morph targets
   useEffect(() => {
@@ -71,38 +73,75 @@ function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; i
           const currentTimeMs = audio.currentTime * 1000; // Audio time in milliseconds
           const frame = Math.floor(currentTimeMs / (1000 / 60)); // 60 FPS
           console.log('Audio currentTime (ms):', currentTimeMs, 'Frame:', frame);
+
+          let targetInfluences: BlendShapeFrame;
           if (blendShapes[frame]) {
-            // Apply blend shapes to head
-            meshRef.current.morphTargetInfluences = blendShapes[frame];
-            // Apply same blend shapes to teeth if available
-            if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-              teethMeshRef.current.morphTargetInfluences = blendShapes[frame];
-            }
-            // Log non-zero influences for debugging
-            const activeInfluences = blendShapes[frame]
-              .map((weight, index) => (weight > 0 ? { index, weight } : null))
-              .filter(Boolean);
-            console.log('Applying blendShapes for frame:', frame, 'Active influences:', activeInfluences);
+            targetInfluences = blendShapes[frame];
+            lastValidFrame.current = targetInfluences;
+          } else if (lastValidFrame.current) {
+            targetInfluences = lastValidFrame.current; // Use last valid frame if current is undefined
+            console.log('Using last valid frame for frame:', frame);
           } else {
-            meshRef.current.morphTargetInfluences = new Array(68).fill(0);
-            if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-              teethMeshRef.current.morphTargetInfluences = new Array(68).fill(0);
+            targetInfluences = new Array(68).fill(0) as BlendShapeFrame;
+            console.log('No blendShapes for frame:', frame, 'Using neutral');
+          }
+
+          // Adjust weights for more realistic movement
+          const adjustedInfluences = targetInfluences.map((weight, index) => {
+            // Example ARKit/Oculus viseme indices (adjust based on your morphTargetDictionary)
+            // Visemes (0-15): sil, pp, ff, th, dd, kk, ch, ss, nn, rr, aa, e, ih, oh, ou
+            if (index >= 0 && index <= 15) {
+              // Scale down visemes to avoid over-exaggeration (e.g., mouthOpen, jawForward)
+              return Math.min(weight * 0.7, 1); // Reduce by 30%
             }
-            console.log('No blendShapes for frame:', frame, 'Resetting to neutral');
-          }
-        } else {
-          meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+            // Boost lower lip movements (e.g., mouthLowerDown)
+            if (index === 16 || index === 17) { // Assume mouthLowerDownLeft/Right
+              return Math.min(weight * 1.2, 1); // Increase by 20%
+            }
+            // Reduce lateral twitching (e.g., mouthLeft, mouthRight)
+            if (index === 18 || index === 19) { // Assume mouthLeft/Right
+              return Math.min(weight * 0.5, 1); // Reduce by 50%
+            }
+            return weight; // Keep other weights unchanged
+          }) as BlendShapeFrame;
+
+          // Interpolate for smooth transitions
+          const lerpFactor = Math.min(delta * 10, 1); // Adjust speed (10 = fast, lower = slower)
+          const newInfluences = prevInfluences.current.map((prev, i) =>
+            THREE.MathUtils.lerp(prev, adjustedInfluences[i], lerpFactor)
+          );
+          prevInfluences.current = newInfluences;
+
+          // Apply smoothed influences to head
+          meshRef.current.morphTargetInfluences = newInfluences;
+          // Apply same to teeth if available
           if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-            teethMeshRef.current.morphTargetInfluences = new Array(68).fill(0);
+            teethMeshRef.current.morphTargetInfluences = newInfluences;
           }
+
+          // Log non-zero influences for debugging
+          const activeInfluences = newInfluences
+            .map((weight, index) => (weight > 0.01 ? { index, weight } : null))
+            .filter(Boolean);
+          console.log('Applying smoothed blendShapes for frame:', frame, 'Active influences:', activeInfluences);
+        } else {
+          // Reset to neutral if audio is paused
+          const neutral = new Array(68).fill(0);
+          meshRef.current.morphTargetInfluences = neutral;
+          if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
+            teethMeshRef.current.morphTargetInfluences = neutral;
+          }
+          prevInfluences.current = neutral;
           console.log('Audio paused or not playing, resetting to neutral');
         }
       } else {
         // Ensure neutral state when not speaking
-        meshRef.current.morphTargetInfluences = new Array(68).fill(0);
+        const neutral = new Array(68).fill(0);
+        meshRef.current.morphTargetInfluences = neutral;
         if (teethMeshRef.current && teethMeshRef.current.morphTargetInfluences) {
-          teethMeshRef.current.morphTargetInfluences = new Array(68).fill(0);
+          teethMeshRef.current.morphTargetInfluences = neutral;
         }
+        prevInfluences.current = neutral;
         console.log('Not speaking, resetting to neutral');
       }
 
