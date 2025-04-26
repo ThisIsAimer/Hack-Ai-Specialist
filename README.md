@@ -65,7 +65,7 @@ Problem Statement 1- Weave AI magic with Groq
 ![dashboardt](readmeImg/ai-sp3.png)
 ![different](readmeImg/ai-sp4.png)
 ![chat](readmeImg/ai-sp5.png)
-![avatar](readmeImg/ai-sp6.png)
+![avatar](readmeImg/ai-sp7.png)
 
 <hr style="border:2px solid #3d444d; margin-top: 2rem;">
 
