@@ -57,7 +57,7 @@ export default function Home() {
           </p>
       </div>
       
-      <div className=" relative z-10 grid md:grid-cols-3 gap-2 max-w-4xl mx-auto text-left ">
+      <div className=" relative z-10 grid md:grid-cols-3 gap-2 max-w-4xl mx-auto text-left justify-center ">
           <div className="p-4">
             <div className="flex items-center justify-center h-24 w-24 mb-4 
              rounded-2xl bg-linear-to-br from-indigo-500/10 to-transparent group-hover:from-indigo-500/20 transition-colors">
@@ -107,9 +107,9 @@ export default function Home() {
           <h3 className="font-bold mx-auto text-4xl max-w-2xl ">Simplify Life with Smart AI in Just three Steps!</h3>
         </div>
 
-        <div className=" relative z-10 flex flex-row justify-between gap-8 mt-5">
+        <div className=" relative z-10 flex md:flex-row flex-col gap-8 mt-5 items-center md:items-start">
           {info.map(items =>
-            <div className="relative w-full max-w-lg hover:scale-105 hover:transition-all duration-300 px-4 sm:px-0 bg-gray-50/50 rounded-xl" key={items.title}>
+            <div className="relative w-full max-w-lg hover:scale-105 hover:transition-all duration-300 px-4 sm:px-0 bg-gray-50/50 rounded-xl h-72 " key={items.title}>
               <div className={cn("relative flex flex-col h-full gap-4 lg:gap-8 z-10 p-8 border border-gray-500/20 rounded-2xl")}>
                 <div className="text-2xl font-bold">
                   {items.title}
@@ -124,12 +124,12 @@ export default function Home() {
       </section>
       
       <BgGradient className=" inset-0 opacity-80 blur-xl z-0"/>
-      <section className="py-16 text-gray-800 flex flex-col justify-center ">
+      <section className="py-16 text-gray-800 flex flex-col justify-center">
 
         <div className=" relative z-10 text-black ">
 
-          <div className="pl-20 mb-4 flex flex-col items-center">
-            <div className=" rounded-full p-2 border border-gray-200 hover:bg-gray-200/50 mb-8">
+          <div className=" mb-4 flex flex-col items-center">
+            <div className="rounded-full p-2 border border-gray-200 hover:bg-gray-200/50 mb-8">
               <Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" />
             </div>
             <div className=" mb-2 font-bold text-indigo-700 text-3xl  text-center">
@@ -139,12 +139,8 @@ export default function Home() {
             <div className="font-bold mx-auto text-5xl text-center">Let&apos;s get Started!</div>
           </div>
 
-          <div className="flex justify-evenly items-center pb-10 py-10">
-            <div className="text-2xl font-bold ">
-              RisingDevelopers
-            </div>
-            
-            <div className="flex justify-center">
+          <div>
+            <div className="flex justify-center mt-10">
               <Button variant={'link'} className="text-white text-base sm:text-lg lg:text-xl rounded-full px-8 sm:px-10 lg:px-12 py-6 sm:py-7 lg:py-8  bg-linear-to-r from-slate-800 to-indigo-600 hover:from-indigo-600 hover:to-slate-800 transition-all duration-200 hover:no-underline shadow-lg">
                 <Link href="/dashboard" className="flex items-center gap-2">
                   <span>
@@ -155,11 +151,15 @@ export default function Home() {
               </Button>
 
             </div>
+          </div>
+
+          <div className="flex justify-between items-center pb-10 mt-10">
+            <div className="text-2xl font-bold">
+              RisingDevs
+            </div>
             
-            <div className="">
-              <div className=" text-2xl font-bold">
-                Contact us
-              </div>
+            <div className=" text-2xl font-bold ">
+              Contact us
             </div>
           </div>
 
