@@ -13,29 +13,31 @@ const env = cleanEnv(process.env, {
 
 // Constants
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const FPS = 60;
 
-// Mapping of Azure viseme IDs to Wolf3D_Head Oculus Visemes (jawOpen removed)
+// Mapping of Azure viseme IDs to Wolf3D_Head blend shape indices
 const visemeToBlendShapes: { [key: number]: { index: number; weight: number }[] } = {
-  0: [{ index: 64, weight: 1.0 }], // Silence (viseme_sil)
-  1: [{ index: 53, weight: 0.8 }], // 'a' (viseme_aa)
-  2: [{ index: 56, weight: 0.8 }], // 'e' (viseme_E)
-  3: [{ index: 58, weight: 0.8 }], // 'i' (viseme_I)
-  4: [{ index: 61, weight: 0.8 }], // 'o' (viseme_O)
-  5: [{ index: 67, weight: 0.8 }], // 'u' (viseme_U)
-  6: [{ index: 57, weight: 0.7 }], // 'f,v' (viseme_FF)
-  7: [
-    { index: 65, weight: 0.6 }, // 's,t' (viseme_SS)
-    { index: 55, weight: 0.4 }, // (viseme_DD)
-  ],
-  8: [{ index: 62, weight: 0.7 }], // 'p,b,m' (viseme_pp)
-  9: [{ index: 66, weight: 0.6 }], // 'θ,ð' (viseme_TH)
-  10: [{ index: 55, weight: 0.6 }], // 'd,t' (viseme_DD)
-  11: [{ index: 59, weight: 0.6 }], // 'k,g' (viseme_kk)
-  12: [{ index: 54, weight: 0.6 }], // 'tʃ,dʒ,ʃ' (viseme_CH)
-  13: [{ index: 65, weight: 0.6 }], // 's,z' (viseme_SS)
-  14: [{ index: 60, weight: 0.6 }], // 'n,l' (viseme_nn)
-  15: [{ index: 63, weight: 0.6 }], // 'r' (viseme_RR)
+  0: [{ index: 1, weight: 1.0 }], // viseme_sil
+  1: [{ index: 11, weight: 0.8 }], // viseme_aa
+  2: [{ index: 12, weight: 0.8 }], // viseme_E
+  3: [{ index: 13, weight: 0.8 }], // viseme_I
+  4: [{ index: 14, weight: 0.8 }], // viseme_O
+  5: [{ index: 15, weight: 0.8 }], // viseme_U
+  6: [{ index: 3, weight: 0.7 }], // viseme_FF ('f,v')
+  7: [{ index: 8, weight: 0.6 }, { index: 5, weight: 0.4 }], // viseme_SS, viseme_DD ('s,t')
+  8: [{ index: 2, weight: 0.7 }], // viseme_PP ('p,b,m')
+  9: [{ index: 4, weight: 0.6 }], // viseme_TH ('θ,ð')
+  10: [{ index: 5, weight: 0.6 }], // viseme_DD ('d,t')
+  11: [{ index: 6, weight: 0.6 }], // viseme_kk ('k,g')
+  12: [{ index: 7, weight: 0.6 }], // viseme_CH ('tʃ,dʒ,ʃ')
+  13: [{ index: 8, weight: 0.6 }], // viseme_SS ('s,z')
+  14: [{ index: 9, weight: 0.6 }], // viseme_nn ('n,l')
+  15: [{ index: 10, weight: 0.6 }], // viseme_RR ('r')
+  16: [{ index: 14, weight: 0.6 }], // viseme_C ('w')
+  17: [{ index: 14, weight: 0.6 }], // viseme_G ('h')
+  18: [{ index: 14, weight: 0.6 }], // viseme_N ('ŋ')
+  19: [{ index: 5, weight: 0.6 }], // viseme_T ('l')
+  20: [{ index: 10, weight: 0.6 }], // viseme_A ('æ')
+  21: [{ index: 12, weight: 0.6 }], // viseme_H ('j')
 };
 
 interface GroqResponse {
@@ -44,6 +46,7 @@ interface GroqResponse {
 
 export async function POST(req: import('next/server').NextRequest): Promise<Response> {
   try {
+    // Parse request body safely
     let body: unknown;
     try {
       body = await req.json();
@@ -54,6 +57,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       );
     }
 
+    // Validate body
     if (
       typeof body !== 'object' ||
       body === null ||
@@ -66,8 +70,9 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       );
     }
 
-    const { message } = body as { message: string };
+    const message = (body as { message: string }).message;
 
+    // Validate message length
     if (message.length > 1000) {
       return NextResponse.json(
         { error: 'Invalid request body: "message" must be a string with max 1000 characters' },
@@ -75,6 +80,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       );
     }
 
+    // Call Groq API for chat completion
     const groqResponse = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -85,7 +91,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
         model: 'llama3-8b-8192',
         messages: [
           { role: 'system', content: env.DOCTOR_AVATAR },
-          { role: 'user', content: message }
+          { role: 'user', content: message },
         ],
         max_tokens: 500,
       }),
@@ -105,11 +111,13 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       return NextResponse.json({ error: 'Invalid response from Groq API' }, { status: 500 });
     }
 
+    // Initialize Azure Speech Synthesizer
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(env.AZURE_SPEECH_KEY, env.AZURE_REGION);
     speechConfig.speechSynthesisOutputFormat =
       SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
     const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
 
+    // Generate SSML with sanitized text
     const sanitizedText = sanitizeHtml(responseText, { allowedTags: [] });
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
@@ -119,41 +127,16 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       </speak>
     `;
 
+    // Capture blend shapes for lip-sync
     const blendShapes: number[][] = [];
-    let lastFrame = -1;
-    let lastBlendShape: number[] = new Array(68).fill(0);
-    const decayRate = 0.1;
-
     synthesizer.visemeReceived = (_s, e) => {
-      const timeMs = e.audioOffset / 10000;
-      const frame = Math.floor(timeMs / (1000 / FPS));
-      console.log(`Viseme timing - audioOffset: ${e.audioOffset / 10000}ms, frame: ${frame}`);
-
-      for (let i = lastFrame + 1; i <= frame; i++) {
-        if (!blendShapes[i]) {
-          blendShapes[i] = lastBlendShape.map(w => Math.max(w - decayRate, 0));
-        }
-      }
-
-      if (!blendShapes[frame]) {
-        blendShapes[frame] = new Array(68).fill(0);
-      }
+      const timeMs = e.audioOffset / 10000; // Convert 100ns to ms
+      const frame = Math.floor(timeMs / (1000 / 60)); // 60 FPS
+      if (!blendShapes[frame]) blendShapes[frame] = new Array(68).fill(0); // 52 ARKit + 16 Oculus Visemes
       const mappings = visemeToBlendShapes[e.visemeId] || [];
-      if (mappings.length === 0) {
-        console.log(`No mapping for visemeId: ${e.visemeId}, using silence (viseme_sil)`);
-        blendShapes[frame] = new Array(68).fill(0); // Reset all weights
-        blendShapes[frame][64] = 1.0; // Apply viseme_sil
-      } else {
-        // Reset all weights before applying new ones to prevent stacking
-        blendShapes[frame] = new Array(68).fill(0);
-        mappings.forEach(({ index, weight }) => {
-          blendShapes[frame][index] = weight;
-          console.log(`Setting index ${index} to weight ${weight} for visemeId ${e.visemeId}`);
-        });
-      }
-      lastFrame = frame;
-      lastBlendShape = [...blendShapes[frame]];
-
+      mappings.forEach(({ index, weight }) => {
+        blendShapes[frame][index] = weight;
+      });
       console.log('Viseme received:', {
         visemeId: e.visemeId,
         frame,
@@ -161,35 +144,20 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
       });
     };
 
+    // Synthesize speech and return audio data in memory
     return new Promise<Response>((resolve) => {
       synthesizer.speakSsmlAsync(
         ssml,
         (result) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            const audioDurationMs = result.audioDuration / 10000;
-            const maxFrame = Math.ceil(audioDurationMs / (1000 / FPS));
-            const transitionFrames = FPS / 4;
-            for (let i = lastFrame + 1; i <= maxFrame; i++) {
-              if (i >= maxFrame - transitionFrames) {
-                const alpha = (i - (maxFrame - transitionFrames)) / transitionFrames;
-                blendShapes[i] = new Array(68).fill(0);
-                blendShapes[i][64] = 1.0 * (1 - alpha);
-              } else {
-                blendShapes[i] = lastBlendShape.map(w => Math.max(w - decayRate, 0));
-              }
-            }
-            const finalBlendShapes = Array.from({ length: maxFrame + 1 }, (_, i) =>
-              blendShapes[i] || new Array(68).fill(0)
-            );
-            const lastFewFrames = finalBlendShapes.slice(-Math.min(10, finalBlendShapes.length));
-            console.log('Last few blend shapes:', lastFewFrames);
-            console.log('Generated blend shapes:', finalBlendShapes);
-            console.log('Audio duration (ms):', audioDurationMs, 'Max frame:', maxFrame);
+            // Convert ArrayBuffer to base64
+            const audioBase64 = Buffer.from(result.audioData).toString('base64');
+            console.log('Generated blend shapes:', blendShapes); // Log final blendShapes
             synthesizer.close();
             resolve(
               NextResponse.json({
-                audio: Buffer.from(result.audioData).toString('base64'),
-                blendShapes: finalBlendShapes,
+                audio: audioBase64,
+                blendShapes,
               })
             );
           } else {
