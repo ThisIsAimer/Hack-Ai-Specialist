@@ -13,6 +13,8 @@
 # testing
 /coverage
 
+/talkinghead-build/
+
 # next.js
 /.next/
 /out/
