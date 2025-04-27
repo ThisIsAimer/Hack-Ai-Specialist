@@ -21,7 +21,7 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
 }
 
 function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; isSpeaking: boolean }) {
-  const { scene, animations } = useGLTF('/models/doctors/doctorM.glb');
+  const { scene, animations } = useGLTF('/models/lawyers/lawyerM.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const teethMeshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);

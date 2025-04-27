@@ -121,7 +121,7 @@ export async function POST(req: import('next/server').NextRequest): Promise<Resp
     const sanitizedText = sanitizeHtml(responseText, { allowedTags: [] });
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="en-US-JennyNeural">
+        <voice name="en-US-GuyNeural">
           ${sanitizedText}
         </voice>
       </speak>
