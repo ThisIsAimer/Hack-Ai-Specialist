@@ -103,7 +103,11 @@ Problem Statement 1- Weave AI magic with Groq
    - ACCOUNTANT_PROMPT=write_your_syetem_prompt
    - PROGRAMMER_PROMPT=write_your_syetem_prompt
    - LAWYER_PROMPT=write_your_syetem_prompt
-   - DOCTOR_AVATAR=write_your_syetem_prompt 
+   - DOCTOR_AVATAR=write_your_avatar_syetem_prompt 
+   - ACCOUNTANT_AVATAR=write_your_avatar_syetem_prompt
+   - TEACHER_AVATAR=write_your_avatar_syetem_prompt
+   - LAWYER_AVATAR=write_your_avatar_syetem_prompt
+   - PROGRAMMER_AVATAR=write_your_avatar_syetem_prompt
 ```
 
 ## Local Setup
