@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Script from 'next/script';
 import Image from 'next/image';
 import { toast } from "sonner";
+import Link from "next/link";
 
 // Define Cloudinary types
 interface CloudinaryUploadResult {
@@ -340,6 +341,13 @@ const DoctorAi = () => {
         </div>
         {/* input form */}
         <form onSubmit={handleSubmit} className="flex mx-4 gap-4 items-center my-4 relative z-10">
+        <div className=" bottom-4 left-4 z-10">
+          <Link href="/dashboard/AccountantAI/avatar">
+            <div className="flex items-center justify-center bg-indigo-500 text-white h-12 w-12 rounded-full hover:bg-indigo-600 transition-all duration-200">
+                <p className="font-semibold">AV</p>
+            </div>
+          </Link>
+        </div>
           <input
             type="text"
             value={input}

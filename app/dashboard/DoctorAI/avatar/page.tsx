@@ -21,7 +21,7 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
 }
 
 function Avatar({ blendShapes, isSpeaking }: { blendShapes: BlendShapeFrame[]; isSpeaking: boolean }) {
-  const { scene, animations } = useGLTF('/models/doctors/doctor.glb');
+  const { scene, animations } = useGLTF('/models/doctors/doctorM.glb');
   const meshRef = useRef<THREE.Mesh>(null);
   const teethMeshRef = useRef<THREE.Mesh>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -432,7 +432,7 @@ export default function AvatarPage() {
           <directionalLight position={[5, 5, 5]} intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
           <Avatar blendShapes={blendShapes} isSpeaking={isSpeaking} />
-          <OrbitControls enablePan={false} minDistance={1} maxDistance={4} />
+          <OrbitControls enablePan={false} minDistance={1} maxDistance={5} />
         </Canvas>
       </div>
       <div className="mt-6 flex space-x-4">
